@@ -70,6 +70,7 @@ interface AudioStudioStore extends AudioStudioState {
   addClip: (clip: Omit<AudioClip, 'id' | 'createdAt'>) => void;
   setActiveClip: (id: string | null) => void;
   setIsPlaying: (playing: boolean) => void;
+  updateVoices: (voices: VoiceProfile[]) => void;
 }
 
 export const useAudioStudioStore = create<AudioStudioStore>()(
@@ -77,6 +78,7 @@ export const useAudioStudioStore = create<AudioStudioStore>()(
     (set) => ({
       mode: 'speech',
       activeClipId: null,
+      voices: [...MOCK_VOICES],
       selectedVoiceId: 'v1',
       prompt: '',
       stability: 0.5,
@@ -104,6 +106,7 @@ export const useAudioStudioStore = create<AudioStudioStore>()(
 
       setActiveClip: (id) => set({ activeClipId: id }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),
+      updateVoices: (newVoices) => set({ voices: newVoices }),
     }),
     {
       name: 'audio-studio-storage',

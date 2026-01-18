@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { VideoState, VideoClip, CameraParams, VideoTunes } from '@/lib/types/video-studio';
+import {
+  VideoState,
+  VideoClip,
+  CameraParams,
+  VideoTunes,
+  VideoModel,
+} from '@/lib/types/video-studio';
 import { v4 as uuidv4 } from 'uuid';
 
 export const AVAILABLE_VIDEO_MODELS = [
@@ -243,12 +249,14 @@ interface VideoStudioStore extends VideoState {
   updateTunes: (updates: Partial<VideoTunes>) => void;
   setAdvanced: (updates: Partial<Pick<VideoState, 'seed' | 'loopMode' | 'interpolate'>>) => void;
   setSelectedModel: (modelId: string) => void;
+  updateModels: (models: VideoModel[]) => void;
 }
 
 export const useVideoStudioStore = create<VideoStudioStore>()(
   persist(
     (set) => ({
       clips: [],
+      models: [...AVAILABLE_VIDEO_MODELS],
       currentTime: 0,
       selectedClipId: null,
 
@@ -305,6 +313,8 @@ export const useVideoStudioStore = create<VideoStudioStore>()(
       setAdvanced: (updates) => set((state) => ({ ...state, ...updates })),
 
       setSelectedModel: (modelId) => set({ selectedModelId: modelId }),
+
+      updateModels: (newModels) => set({ models: newModels }),
     }),
     {
       name: 'video-studio-storage',

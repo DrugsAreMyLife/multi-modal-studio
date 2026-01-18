@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { ImageStudioState, GenerationSettings, ImageTunes } from '@/lib/types/image-studio';
+import {
+  ImageStudioState,
+  GenerationSettings,
+  ImageTunes,
+  GenerationModel,
+} from '@/lib/types/image-studio';
 
 // Mock Models Registry (This would likely live in a separate config or API)
 export const AVAILABLE_MODELS = [
@@ -161,45 +166,6 @@ export const AVAILABLE_MODELS = [
     },
   },
   {
-    id: 'leonardo-phoenix',
-    name: 'Leonardo.ai Phoenix',
-    provider: 'cloud',
-    capabilities: {
-      supports_inpainting: true,
-      supports_outpainting: true,
-      supports_cfg: true,
-      supports_steps: true,
-      supports_negative_prompt: true,
-      supports_streaming: false,
-    },
-  },
-  {
-    id: 'ideogram-2.0',
-    name: 'Ideogram 2.0',
-    provider: 'cloud',
-    capabilities: {
-      supports_inpainting: false,
-      supports_outpainting: false,
-      supports_cfg: false,
-      supports_steps: false,
-      supports_negative_prompt: true,
-      supports_streaming: false,
-    },
-  },
-  {
-    id: 'recraft-v3',
-    name: 'Recraft V3',
-    provider: 'cloud',
-    capabilities: {
-      supports_inpainting: true,
-      supports_outpainting: true,
-      supports_cfg: true,
-      supports_steps: true,
-      supports_negative_prompt: true,
-      supports_streaming: false,
-    },
-  },
-  {
     id: 'sam-2',
     name: 'SAM 2 (Segment Anything)',
     provider: 'cloud',
@@ -324,12 +290,14 @@ interface ImageStudioStore extends ImageStudioState {
   updateTunes: (tunes: Partial<ImageTunes>) => void;
   setCanvasTransform: (transform: { x: number; y: number; scale: number }) => void;
   setActiveImage: (id: string | null) => void;
+  updateModels: (models: GenerationModel[]) => void;
 }
 
 export const useImageStudioStore = create<ImageStudioStore>()(
   persist(
     (set) => ({
-      selectedModelId: 'sdxl-turbo-local',
+      models: [...AVAILABLE_MODELS],
+      selectedModelId: 'flux-1.1-pro',
       settings: {
         prompt: '',
         width: 1024,
@@ -365,6 +333,8 @@ export const useImageStudioStore = create<ImageStudioStore>()(
       setCanvasTransform: (transform) => set({ canvasTransform: transform }),
 
       setActiveImage: (id) => set({ activeImageId: id }),
+
+      updateModels: (newModels) => set({ models: newModels }),
     }),
     {
       name: 'image-studio-storage',

@@ -126,7 +126,8 @@ class ModelRegistrySync {
       const data = await response.json();
       const models = data.models || [];
 
-      // Update store (would need to add updateModels method to stores)
+      // Update store
+      useImageStudioStore.getState().updateModels(models);
       console.log(`[ModelSync] Fetched ${models.length} ${type} models`);
 
       this.lastSync[type] = Date.now();
@@ -175,6 +176,8 @@ class ModelRegistrySync {
       const data = await response.json();
       const models = data.models || [];
 
+      // Update store
+      useVideoStudioStore.getState().updateModels(models);
       console.log(`[ModelSync] Fetched ${models.length} ${type} models`);
 
       this.lastSync[type] = Date.now();
@@ -222,6 +225,8 @@ class ModelRegistrySync {
       const data = await response.json();
       const models = data.models || [];
 
+      // Update store
+      useAudioStudioStore.getState().updateVoices(models);
       console.log(`[ModelSync] Fetched ${models.length} ${type} models`);
 
       this.lastSync[type] = Date.now();

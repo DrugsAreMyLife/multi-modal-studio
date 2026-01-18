@@ -1,222 +1,191 @@
 'use client';
 
-import { useIconStudioStore } from '@/lib/store/icon-studio-store';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FineTuneControl } from '@/components/shared/FineTuneControl';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Palette, Shapes, Sparkles, Layers, Sun, Moon, Zap } from 'lucide-react';
 
-export function StyleDNABuilder() {
-    const { styleDNA, updateStyleDNA } = useIconStudioStore();
+interface StyleDNA {
+  colorPalette: string[];
+  complexity: number; // 0-100
+  curviness: number; // 0-100 (0 = geometric, 100 = organic)
+  density: number; // 0-100
+  brightness: number; // 0-100
+  contrast: number; // 0-100
+  style: 'flat' | 'gradient' | '3d' | 'outline' | 'glyph';
+}
 
-    // Helper to update specific section
-    const updateSection = (section: keyof typeof styleDNA, key: string, value: any) => {
-        updateStyleDNA({
-            [section]: {
-                ...styleDNA[section as keyof typeof styleDNA],
-                [key]: value
-            }
-        });
-    };
+const PRESET_PALETTES = [
+  { name: 'Vibrant', colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'] },
+  { name: 'Corporate', colors: ['#2C3E50', '#3498DB', '#E74C3C', '#F1C40F'] },
+  { name: 'Pastel', colors: ['#FFB5BA', '#B5D8FF', '#C4B5FF', '#B5FFD9'] },
+  { name: 'Monochrome', colors: ['#1a1a1a', '#4a4a4a', '#8a8a8a', '#cacaca'] },
+  { name: 'Neon', colors: ['#FF00FF', '#00FFFF', '#FF00AA', '#00FF00'] },
+];
 
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-            <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                    <CardTitle className="text-lg">Geometry Contract</CardTitle>
-                    <CardDescription>Fundamental shape rules</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Stroke Width ({styleDNA.geometry.stroke_width})</Label>
-                        <Input
-                            value={styleDNA.geometry.stroke_width}
-                            onChange={(e) => updateSection('geometry', 'stroke_width', e.target.value)}
-                            className="bg-black/20"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Corner Radius ({styleDNA.geometry.corner_radius})</Label>
-                        <Input
-                            value={styleDNA.geometry.corner_radius}
-                            onChange={(e) => updateSection('geometry', 'corner_radius', e.target.value)}
-                            className="bg-black/20"
-                        />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <Label>Optical Corrections</Label>
-                        <Switch
-                            checked={styleDNA.geometry.optical_corrections}
-                            onCheckedChange={(c) => updateSection('geometry', 'optical_corrections', c)}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+const STYLE_OPTIONS = [
+  { id: 'flat', name: 'Flat', icon: Layers },
+  { id: 'gradient', name: 'Gradient', icon: Sun },
+  { id: '3d', name: '3D', icon: Shapes },
+  { id: 'outline', name: 'Outline', icon: Sparkles },
+  { id: 'glyph', name: 'Glyph', icon: Zap },
+] as const;
 
-            <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                    <CardTitle className="text-lg">Material Model</CardTitle>
-                    <CardDescription>Surface and rendering physics</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Surface Type</Label>
-                        <Select
-                            value={styleDNA.material_model.surface}
-                            onValueChange={(v) => updateSection('material_model', 'surface', v)}
-                        >
-                            <SelectTrigger className="bg-black/20">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="flat">Flat / Vector</SelectItem>
-                                <SelectItem value="glass">Glassmorphism</SelectItem>
-                                <SelectItem value="metallic">Metallic / Skeu.</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Blur Radius</Label>
-                        <Input
-                            value={styleDNA.material_model.blur_radius}
-                            onChange={(e) => updateSection('material_model', 'blur_radius', e.target.value)}
-                            className="bg-black/20"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Transparency ({(styleDNA.material_model.transparency * 100).toFixed(0)}%)</Label>
-                        <Slider
-                            value={[styleDNA.material_model.transparency]}
-                            max={1}
-                            step={0.01}
-                            onValueChange={([v]) => updateSection('material_model', 'transparency', v)}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+interface StyleDNABuilderProps {
+  onStyleChange?: (style: StyleDNA) => void;
+  initialStyle?: Partial<StyleDNA>;
+}
 
-            <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                    <CardTitle className="text-lg">Lighting Model</CardTitle>
-                    <CardDescription>Global illumination rules</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Direction</Label>
-                        <Select
-                            value={styleDNA.lighting_model.light_direction}
-                            onValueChange={(v) => updateSection('lighting_model', 'light_direction', v)}
-                        >
-                            <SelectTrigger className="bg-black/20">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="top-left">Top Left</SelectItem>
-                                <SelectItem value="top-right">Top Right</SelectItem>
-                                <SelectItem value="front">Frontal</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Highlight Intensity</Label>
-                        <Slider
-                            value={[styleDNA.lighting_model.highlight_intensity]}
-                            max={1}
-                            step={0.01}
-                            onValueChange={([v]) => updateSection('lighting_model', 'highlight_intensity', v)}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+export function StyleDNABuilder({ onStyleChange, initialStyle }: StyleDNABuilderProps) {
+  const [styleDNA, setStyleDNA] = useState<StyleDNA>({
+    colorPalette: initialStyle?.colorPalette || PRESET_PALETTES[0].colors,
+    complexity: initialStyle?.complexity ?? 50,
+    curviness: initialStyle?.curviness ?? 50,
+    density: initialStyle?.density ?? 50,
+    brightness: initialStyle?.brightness ?? 50,
+    contrast: initialStyle?.contrast ?? 50,
+    style: initialStyle?.style || 'flat',
+  });
 
-            {/* Nuance / Fine Tuning */}
-            <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                    <CardTitle className="text-lg">Visual Nuance</CardTitle>
-                    <CardDescription>Fine-tune aesthetic qualities</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <FineTuneControl
-                        label="Complexity"
-                        value={styleDNA.nuance?.complexity || 0}
-                        onChange={(v) => updateSection('nuance', 'complexity', v)}
-                        leftLabel="Minimal"
-                        rightLabel="Detailed"
+  const updateStyle = (updates: Partial<StyleDNA>) => {
+    const newStyle = { ...styleDNA, ...updates };
+    setStyleDNA(newStyle);
+    onStyleChange?.(newStyle);
+  };
+
+  return (
+    <Card className="w-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <Palette size={16} className="text-primary" />
+          Style DNA Builder
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Color Palette Selection */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Color Palette</Label>
+          <div className="flex flex-wrap gap-2">
+            {PRESET_PALETTES.map((palette) => (
+              <Button
+                key={palette.name}
+                variant={
+                  JSON.stringify(styleDNA.colorPalette) === JSON.stringify(palette.colors)
+                    ? 'default'
+                    : 'outline'
+                }
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => updateStyle({ colorPalette: palette.colors })}
+              >
+                <div className="mr-2 flex gap-0.5">
+                  {palette.colors.map((color, i) => (
+                    <div
+                      key={i}
+                      className="h-3 w-3 rounded-sm"
+                      style={{ backgroundColor: color }}
                     />
-                    <FineTuneControl
-                        label="Visual Weight"
-                        value={styleDNA.nuance?.weight || 0}
-                        onChange={(v) => updateSection('nuance', 'weight', v)}
-                        leftLabel="Light"
-                        rightLabel="Bold"
-                    />
-                    <FineTuneControl
-                        label="Perceived Depth"
-                        value={styleDNA.nuance?.depth || 0}
-                        onChange={(v) => updateSection('nuance', 'depth', v)}
-                        leftLabel="Flat"
-                        rightLabel="Deep"
-                    />
-                </CardContent>
-            </Card>
+                  ))}
+                </div>
+                <span className="text-xs">{palette.name}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
 
-            {/* Advanced Settings */}
-            <Card className="bg-white/5 border-white/10">
-                <CardHeader>
-                    <CardTitle className="text-lg">Advanced Output</CardTitle>
-                    <CardDescription>Format and overrides</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Format</Label>
-                        <Select
-                            value={useIconStudioStore().generationSettings.outputFormat}
-                            onValueChange={(v: any) => useIconStudioStore.getState().updateGenerationSettings({ outputFormat: v })}
-                        >
-                            <SelectTrigger className="bg-black/20">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="svg">SVG (Vector)</SelectItem>
-                                <SelectItem value="png">PNG (Raster)</SelectItem>
-                                <SelectItem value="pdf">PDF (Print)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+        {/* Style Type Selection */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Icon Style</Label>
+          <div className="flex flex-wrap gap-2">
+            {STYLE_OPTIONS.map(({ id, name, icon: Icon }) => (
+              <Button
+                key={id}
+                variant={styleDNA.style === id ? 'default' : 'outline'}
+                size="sm"
+                className="h-8"
+                onClick={() => updateStyle({ style: id })}
+              >
+                <Icon size={14} className="mr-1" />
+                {name}
+              </Button>
+            ))}
+          </div>
+        </div>
 
-                    <div className="space-y-2">
-                        <Label>Background</Label>
-                        <Select
-                            value={useIconStudioStore().generationSettings.background}
-                            onValueChange={(v: any) => useIconStudioStore.getState().updateGenerationSettings({ background: v })}
-                        >
-                            <SelectTrigger className="bg-black/20">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="transparent">Transparent</SelectItem>
-                                <SelectItem value="white">White</SelectItem>
-                                <SelectItem value="colored">Match Palette</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+        {/* Sliders */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label className="text-xs">Complexity</Label>
+              <Badge variant="secondary" className="text-[10px]">
+                {styleDNA.complexity}%
+              </Badge>
+            </div>
+            <Slider
+              value={[styleDNA.complexity]}
+              onValueChange={([v]) => updateStyle({ complexity: v })}
+              max={100}
+              step={1}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label className="text-xs">Curviness</Label>
+              <Badge variant="secondary" className="text-[10px]">
+                {styleDNA.curviness}%
+              </Badge>
+            </div>
+            <Slider
+              value={[styleDNA.curviness]}
+              onValueChange={([v]) => updateStyle({ curviness: v })}
+              max={100}
+              step={1}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label className="text-xs">Density</Label>
+              <Badge variant="secondary" className="text-[10px]">
+                {styleDNA.density}%
+              </Badge>
+            </div>
+            <Slider
+              value={[styleDNA.density]}
+              onValueChange={([v]) => updateStyle({ density: v })}
+              max={100}
+              step={1}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label className="text-xs">Brightness</Label>
+              <Badge variant="secondary" className="text-[10px]">
+                {styleDNA.brightness}%
+              </Badge>
+            </div>
+            <Slider
+              value={[styleDNA.brightness]}
+              onValueChange={([v]) => updateStyle({ brightness: v })}
+              max={100}
+              step={1}
+            />
+          </div>
+        </div>
 
-                    <div className="space-y-2">
-                        <Label>Brand Override</Label>
-                        <div className="flex gap-2">
-                            <div className="h-8 w-8 rounded-full bg-blue-500 ring-2 ring-white/10"></div>
-                            <Input
-                                placeholder="#Hex..."
-                                className="h-8 text-xs font-mono bg-black/20"
-                                onChange={(e) => useIconStudioStore.getState().updateGenerationSettings({ paletteOverride: [e.target.value] })}
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card >
-        </div >
-    );
+        {/* DNA Preview */}
+        <div className="bg-muted rounded-lg p-3">
+          <Label className="mb-2 block text-xs font-medium">Style DNA Preview</Label>
+          <div className="flex flex-wrap gap-2">
+            <Badge>Style: {styleDNA.style}</Badge>
+            <Badge variant="outline">C:{styleDNA.complexity}</Badge>
+            <Badge variant="outline">V:{styleDNA.curviness}</Badge>
+            <Badge variant="outline">D:{styleDNA.density}</Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

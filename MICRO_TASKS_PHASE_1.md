@@ -1,6 +1,7 @@
 # Phase 1: State Management & API Routing - Micro-Task Decomposition
 
 ## Overview
+
 This phase implements persistent model selection across VideoStudio and Chat components, and establishes dynamic API routing for the chat endpoint based on selected models.
 
 **Original Duration**: 3 subtasks
@@ -14,6 +15,7 @@ This phase implements persistent model selection across VideoStudio and Chat com
 ## Task Group 1: VideoStudio State Management (Parallel Safe)
 
 ### 1.1: Add selectedModelId to VideoState Interface
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/types/video-studio.ts`
 **Lines**: 17-31 (VideoState interface)
 **Duration**: 6 minutes
@@ -24,27 +26,29 @@ This phase implements persistent model selection across VideoStudio and Chat com
 Add the selectedModelId field to VideoState interface before the closing brace.
 
 **Code to Add** (after line 28, before line 31):
+
 ```typescript
-    selectedModelId: string; // Model ID from AVAILABLE_VIDEO_MODELS
+selectedModelId: string; // Model ID from AVAILABLE_VIDEO_MODELS
 ```
 
 **Full Context** (lines 17-31 after change):
+
 ```typescript
 export interface VideoState {
-    clips: VideoClip[];
-    currentTime: number; // Playhead position in seconds
-    selectedClipId: string | null;
+  clips: VideoClip[];
+  currentTime: number; // Playhead position in seconds
+  selectedClipId: string | null;
 
-    // Generation Settings for the next shot
-    startFrame: string | null; // Image ID or URL
-    endFrame: string | null;
-    camera: CameraParams;
-    duration: number; // Target duration for generation
-    tunes: VideoTunes; // Fine tuning
-    seed: number;
-    loopMode: boolean;
-    interpolate: boolean;
-    selectedModelId: string; // Model ID from AVAILABLE_VIDEO_MODELS
+  // Generation Settings for the next shot
+  startFrame: string | null; // Image ID or URL
+  endFrame: string | null;
+  camera: CameraParams;
+  duration: number; // Target duration for generation
+  tunes: VideoTunes; // Fine tuning
+  seed: number;
+  loopMode: boolean;
+  interpolate: boolean;
+  selectedModelId: string; // Model ID from AVAILABLE_VIDEO_MODELS
 }
 ```
 
@@ -53,6 +57,7 @@ export interface VideoState {
 ---
 
 ### 1.2: Add selectedModelId to Store Interface
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/video-studio-store.ts`
 **Lines**: 75-88 (VideoStudioStore interface)
 **Duration**: 5 minutes
@@ -63,26 +68,28 @@ export interface VideoState {
 Add setSelectedModel action to VideoStudioStore interface.
 
 **Code to Add** (after line 87, before closing brace):
+
 ```typescript
     setSelectedModel: (modelId: string) => void;
 ```
 
 **Full Context** (lines 75-88 after change):
+
 ```typescript
 interface VideoStudioStore extends VideoState {
-    addClip: (clip: Omit<VideoClip, 'id'>) => string;
-    updateClip: (id: string, updates: Partial<VideoClip>) => void;
-    deleteClip: (id: string) => void;
+  addClip: (clip: Omit<VideoClip, 'id'>) => string;
+  updateClip: (id: string, updates: Partial<VideoClip>) => void;
+  deleteClip: (id: string) => void;
 
-    setCurrentTime: (time: number) => void;
-    setSelectedClip: (id: string | null) => void;
+  setCurrentTime: (time: number) => void;
+  setSelectedClip: (id: string | null) => void;
 
-    setStartFrame: (frame: string | null) => void;
-    setEndFrame: (frame: string | null) => void;
-    updateCamera: (updates: Partial<CameraParams>) => void;
-    updateTunes: (updates: Partial<VideoTunes>) => void;
-    setAdvanced: (updates: Partial<Pick<VideoState, 'seed' | 'loopMode' | 'interpolate'>>) => void;
-    setSelectedModel: (modelId: string) => void;
+  setStartFrame: (frame: string | null) => void;
+  setEndFrame: (frame: string | null) => void;
+  updateCamera: (updates: Partial<CameraParams>) => void;
+  updateTunes: (updates: Partial<VideoTunes>) => void;
+  setAdvanced: (updates: Partial<Pick<VideoState, 'seed' | 'loopMode' | 'interpolate'>>) => void;
+  setSelectedModel: (modelId: string) => void;
 }
 ```
 
@@ -91,6 +98,7 @@ interface VideoStudioStore extends VideoState {
 ---
 
 ### 1.3: Add selectedModelId to Store Initial State
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/video-studio-store.ts`
 **Lines**: 90-110 (Initial state in create call)
 **Duration**: 5 minutes
@@ -101,11 +109,13 @@ interface VideoStudioStore extends VideoState {
 Add selectedModelId to the initial state object with default value 'runway-gen3-alpha'.
 
 **Code to Add** (after line 109, before line 110):
+
 ```typescript
             selectedModelId: 'runway-gen3-alpha',
 ```
 
 **Full Context** (lines 90-110 after change):
+
 ```typescript
 export const useVideoStudioStore = create<VideoStudioStore>()(
     persist(
@@ -135,6 +145,7 @@ export const useVideoStudioStore = create<VideoStudioStore>()(
 ---
 
 ### 1.4: Implement setSelectedModel Action
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/video-studio-store.ts`
 **Lines**: 128-142 (Action implementations section)
 **Duration**: 6 minutes
@@ -145,12 +156,14 @@ export const useVideoStudioStore = create<VideoStudioStore>()(
 Add the setSelectedModel action implementation after setAdvanced. Add it right before the closing of the set function.
 
 **Code to Add** (after line 141, before the closing })):
+
 ```typescript
 
             setSelectedModel: (modelId) => set({ selectedModelId: modelId }),
 ```
 
 **Full Context** (lines 128-143 after change):
+
 ```typescript
             setCurrentTime: (time) => set({ currentTime: time }),
             setSelectedClip: (id) => set({ selectedClipId: id }),
@@ -177,6 +190,7 @@ Add the setSelectedModel action implementation after setAdvanced. Add it right b
 ---
 
 ### 1.5: Refactor VideoModelSelector to Use Store
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/video-studio/VideoModelSelector.tsx`
 **Lines**: 1-27 (Entire setup section)
 **Duration**: 8 minutes
@@ -187,6 +201,7 @@ Add the setSelectedModel action implementation after setAdvanced. Add it right b
 Replace the local useState with Zustand store hook for model selection persistence.
 
 **Current Code** (lines 1-27):
+
 ```typescript
 'use client';
 
@@ -218,6 +233,7 @@ export function VideoModelSelector() {
 ```
 
 **Replace With** (lines 1-27):
+
 ```typescript
 'use client';
 
@@ -242,6 +258,7 @@ export function VideoModelSelector() {
 ---
 
 ### 1.6: Update VideoModelSelector Click Handler
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/video-studio/VideoModelSelector.tsx`
 **Lines**: 48-52 (DropdownMenuItem onClick)
 **Duration**: 5 minutes
@@ -252,6 +269,7 @@ export function VideoModelSelector() {
 Replace setSelectedId with setSelectedModel in the dropdown item click handler.
 
 **Current Code** (lines 48-52):
+
 ```typescript
                         <DropdownMenuItem
                             key={model.id}
@@ -261,6 +279,7 @@ Replace setSelectedId with setSelectedModel in the dropdown item click handler.
 ```
 
 **Replace With**:
+
 ```typescript
                         <DropdownMenuItem
                             key={model.id}
@@ -274,6 +293,7 @@ Replace setSelectedId with setSelectedModel in the dropdown item click handler.
 ---
 
 ### 1.7: Verify VideoStudio Model Persistence Test
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/video-studio/VideoModelSelector.tsx`
 **Duration**: 7 minutes
 **Dependencies**: 1.6
@@ -284,6 +304,7 @@ Replace setSelectedId with setSelectedModel in the dropdown item click handler.
 Manually verify model selection persists across page refresh.
 
 **Test Steps**:
+
 1. Open VideoStudio component in browser
 2. Select "Luma Dream Machine" from dropdown
 3. Note the selection in UI
@@ -300,6 +321,7 @@ Manually verify model selection persists across page refresh.
 ## Task Group 2: Chat API Enhancement (Sequential Dependencies)
 
 ### 2.1: Modify Chat API Route Handler Signature
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`
 **Lines**: 1-7 (Request parsing)
 **Duration**: 6 minutes
@@ -310,12 +332,14 @@ Manually verify model selection persists across page refresh.
 Update the request body parsing to extract modelId and providerId in addition to messages.
 
 **Current Code** (lines 6-8):
+
 ```typescript
 export async function POST(req: Request) {
     const { messages } = await req.json();
 ```
 
 **Replace With**:
+
 ```typescript
 export async function POST(req: Request) {
     const { messages, modelId, providerId } = await req.json();
@@ -326,6 +350,7 @@ export async function POST(req: Request) {
 ---
 
 ### 2.2: Import createUniversalModel Factory
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`
 **Lines**: 1-3 (Imports section)
 **Duration**: 4 minutes
@@ -336,17 +361,20 @@ export async function POST(req: Request) {
 Add import for createUniversalModel from the factory file.
 
 **Current Code** (lines 1-3):
+
 ```typescript
 import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 ```
 
 **Add After Line 2**:
+
 ```typescript
 import { createUniversalModel } from '@/lib/models/universal-model-factory';
 ```
 
 **Full Context** (lines 1-3 after change):
+
 ```typescript
 import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
@@ -358,6 +386,7 @@ import { createUniversalModel } from '@/lib/models/universal-model-factory';
 ---
 
 ### 2.3: Import SUPPORTED_MODELS List
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`
 **Lines**: 1-4 (Imports section)
 **Duration**: 4 minutes
@@ -368,11 +397,13 @@ import { createUniversalModel } from '@/lib/models/universal-model-factory';
 Add import for SUPPORTED_MODELS array for model validation.
 
 **Add After Line 3**:
+
 ```typescript
 import { SUPPORTED_MODELS } from '@/lib/models/supported-models';
 ```
 
 **Full Context** (lines 1-4 after change):
+
 ```typescript
 import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
@@ -385,6 +416,7 @@ import { SUPPORTED_MODELS } from '@/lib/models/supported-models';
 ---
 
 ### 2.4: Add Model Validation Logic
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`
 **Lines**: 6-16 (After request parsing, before streamText)
 **Duration**: 8 minutes
@@ -395,6 +427,7 @@ import { SUPPORTED_MODELS } from '@/lib/models/supported-models';
 Add model lookup and validation before calling streamText.
 
 **Current Code** (lines 6-11):
+
 ```typescript
 export async function POST(req: Request) {
     const { messages, modelId, providerId } = await req.json();
@@ -406,24 +439,31 @@ export async function POST(req: Request) {
 ```
 
 **Insert Between Lines 7 and 9**:
+
 ```typescript
+// Validate model exists in supported models list
+const modelConfig = SUPPORTED_MODELS.find(
+  (m) => m.modelId === modelId && m.providerId === providerId,
+);
 
-    // Validate model exists in supported models list
-    const modelConfig = SUPPORTED_MODELS.find(m => m.modelId === modelId && m.providerId === providerId);
-
-    if (!modelConfig) {
-        return new Response(
-            JSON.stringify({
-                error: 'Model not found',
-                message: `Model "${modelId}" from provider "${providerId}" is not supported`,
-                supportedModels: SUPPORTED_MODELS.map(m => ({ providerId: m.providerId, modelId: m.modelId, name: m.name }))
-            }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-    }
+if (!modelConfig) {
+  return new Response(
+    JSON.stringify({
+      error: 'Model not found',
+      message: `Model "${modelId}" from provider "${providerId}" is not supported`,
+      supportedModels: SUPPORTED_MODELS.map((m) => ({
+        providerId: m.providerId,
+        modelId: m.modelId,
+        name: m.name,
+      })),
+    }),
+    { status: 400, headers: { 'Content-Type': 'application/json' } },
+  );
+}
 ```
 
 **Full Context** (lines 6-25 after change):
+
 ```typescript
 export async function POST(req: Request) {
     const { messages, modelId, providerId } = await req.json();
@@ -453,6 +493,7 @@ export async function POST(req: Request) {
 ---
 
 ### 2.5: Replace Hardcoded Model with Dynamic Factory
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`
 **Lines**: 23-27 (streamText call)
 **Duration**: 6 minutes
@@ -463,27 +504,30 @@ export async function POST(req: Request) {
 Replace hardcoded openai('gpt-4-turbo') with dynamic model creation using createUniversalModel.
 
 **Current Code** (lines 23-27):
+
 ```typescript
-    const result = await streamText({
-        model: openai('gpt-4-turbo'),
-        messages,
-    });
+const result = await streamText({
+  model: openai('gpt-4-turbo'),
+  messages,
+});
 ```
 
 **Replace With**:
+
 ```typescript
-    const result = await streamText({
-        model: createUniversalModel(providerId, modelId),
-        messages,
-    });
+const result = await streamText({
+  model: createUniversalModel(providerId, modelId),
+  messages,
+});
 ```
 
 **Full Context** (lines 23-27 after change):
+
 ```typescript
-    const result = await streamText({
-        model: createUniversalModel(providerId, modelId),
-        messages,
-    });
+const result = await streamText({
+  model: createUniversalModel(providerId, modelId),
+  messages,
+});
 ```
 
 **Success Criteria**: API accepts modelId and providerId, creates correct model instance via factory, streamText receives valid LanguageModel, no TypeScript errors.
@@ -491,6 +535,7 @@ Replace hardcoded openai('gpt-4-turbo') with dynamic model creation using create
 ---
 
 ### 2.6: Add Fallback for Missing Model Parameters
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`
 **Lines**: 6-8 (Request parsing with defaults)
 **Duration**: 5 minutes
@@ -501,12 +546,14 @@ Replace hardcoded openai('gpt-4-turbo') with dynamic model creation using create
 Add default values for modelId and providerId to handle legacy requests without these parameters.
 
 **Current Code** (lines 6-8):
+
 ```typescript
 export async function POST(req: Request) {
     const { messages, modelId, providerId } = await req.json();
 ```
 
 **Replace With**:
+
 ```typescript
 export async function POST(req: Request) {
     const { messages, modelId = 'gpt-4-turbo', providerId = 'openai' } = await req.json();
@@ -519,6 +566,7 @@ export async function POST(req: Request) {
 ## Task Group 3: Chat Component Integration (Sequential Dependencies)
 
 ### 3.1: Identify Chat Store Model Selection State
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/chat-store.ts`
 **Duration**: 5 minutes
 **Dependencies**: None
@@ -528,6 +576,7 @@ export async function POST(req: Request) {
 Read the chat-store.ts file to identify if selectedModelId already exists in ChatThreadState, or if we need to add it. This will inform the next tasks.
 
 **Expected Outcome**:
+
 - Document whether ChatThreadState already has a modelId field
 - If not, note that task 3.2 will add it
 - Confirm the structure of the chat store for reference in component integration
@@ -537,6 +586,7 @@ Read the chat-store.ts file to identify if selectedModelId already exists in Cha
 ---
 
 ### 3.2: Add Model Selection to ChatOrchestrator Component
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/chat/ChatOrchestrator.tsx`
 **Lines**: 25-50 (State setup section)
 **Duration**: 8 minutes
@@ -547,6 +597,7 @@ Read the chat-store.ts file to identify if selectedModelId already exists in Cha
 Add state tracking for selected model and provider in ChatOrchestrator.
 
 **Current Code** (lines 25-50):
+
 ```typescript
 export function ChatOrchestrator() {
     const activeThreadId = useChatStore(state => state.activeThreadId);
@@ -574,11 +625,11 @@ export function ChatOrchestrator() {
 ```
 
 **Add After Line 47**:
-```typescript
 
-    // Single Model Selection for Chat
-    const [selectedChatModelId, setSelectedChatModelId] = useState<string>('gpt-4.5-turbo');
-    const [selectedChatProviderId, setSelectedChatProviderId] = useState<string>('openai');
+```typescript
+// Single Model Selection for Chat
+const [selectedChatModelId, setSelectedChatModelId] = useState<string>('gpt-4.5-turbo');
+const [selectedChatProviderId, setSelectedChatProviderId] = useState<string>('openai');
 ```
 
 **Success Criteria**: Component tracks selected model ID and provider, state updates don't cause re-renders, default values are valid models from SUPPORTED_MODELS.
@@ -586,6 +637,7 @@ export function ChatOrchestrator() {
 ---
 
 ### 3.3: Create Model Selection from Chat Store
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/chat/ChatOrchestrator.tsx`
 **Lines**: 25-35 (Initial state section)
 **Duration**: 7 minutes
@@ -596,11 +648,11 @@ export function ChatOrchestrator() {
 Add logic to read selected model from the active thread in chat store (if available).
 
 **Insert After Line 36** (after storeMessages definition):
-```typescript
 
-    // Get selected model from active thread, fallback to defaults
-    const threadModelId = activeThread?.selectedModelId || 'gpt-4.5-turbo';
-    const threadProviderId = activeThread?.selectedProviderId || 'openai';
+```typescript
+// Get selected model from active thread, fallback to defaults
+const threadModelId = activeThread?.selectedModelId || 'gpt-4.5-turbo';
+const threadProviderId = activeThread?.selectedProviderId || 'openai';
 ```
 
 **Success Criteria**: Component reads model selection from active thread, falls back to defaults if missing, supports switching between threads with different model selections.
@@ -608,6 +660,7 @@ Add logic to read selected model from the active thread in chat store (if availa
 ---
 
 ### 3.4: Integrate append() Call with Model Information
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/chat/ChatOrchestrator.tsx`
 **Lines**: 160-172 (append call in handleCustomSubmit)
 **Duration**: 8 minutes
@@ -618,6 +671,7 @@ Add logic to read selected model from the active thread in chat store (if availa
 Modify the append() calls to include modelId and providerId in the request body to the chat API.
 
 **Current Code** (lines 160-172):
+
 ```typescript
         setMessages(aiAncestors);
 
@@ -628,16 +682,17 @@ Modify the append() calls to include modelId and providerId in the request body 
 ```
 
 **Replace Lines 167-170 With**:
-```typescript
-        setMessages(aiAncestors);
 
-        await append({
-            text: userContent,
-            experimental_metadata: {
-                modelId: threadModelId,
-                providerId: threadProviderId
-            }
-        });
+```typescript
+setMessages(aiAncestors);
+
+await append({
+  text: userContent,
+  experimental_metadata: {
+    modelId: threadModelId,
+    providerId: threadProviderId,
+  },
+});
 ```
 
 **Note**: If the useChat hook doesn't support experimental_metadata, we may need to create a custom wrapper. This will be handled in task 3.5.
@@ -647,6 +702,7 @@ Modify the append() calls to include modelId and providerId in the request body 
 ---
 
 ### 3.5: Create Custom useChat Wrapper with Model Routing
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/hooks/useChatWithModel.ts` (NEW FILE)
 **Duration**: 10 minutes
 **Dependencies**: 3.4
@@ -656,6 +712,7 @@ Modify the append() calls to include modelId and providerId in the request body 
 Create a custom hook that wraps useChat and automatically includes model information in API requests.
 
 **File Content**:
+
 ```typescript
 'use client';
 
@@ -663,45 +720,43 @@ import { useChat as aiUseChat, UseChatOptions } from 'ai/react';
 import { SUPPORTED_MODELS } from '@/lib/models/supported-models';
 
 interface UseChatWithModelOptions extends UseChatOptions {
-    modelId?: string;
-    providerId?: string;
+  modelId?: string;
+  providerId?: string;
 }
 
 export function useChatWithModel(options: UseChatWithModelOptions = {}) {
-    const {
-        modelId = 'gpt-4.5-turbo',
-        providerId = 'openai',
-        ...aiOptions
-    } = options;
+  const { modelId = 'gpt-4.5-turbo', providerId = 'openai', ...aiOptions } = options;
 
-    // Validate the model exists
-    const modelConfig = SUPPORTED_MODELS.find(m => m.modelId === modelId && m.providerId === providerId);
-    if (!modelConfig) {
-        console.warn(`Model not found: ${providerId}/${modelId}. Using default GPT-4.5 Turbo.`);
-    }
+  // Validate the model exists
+  const modelConfig = SUPPORTED_MODELS.find(
+    (m) => m.modelId === modelId && m.providerId === providerId,
+  );
+  if (!modelConfig) {
+    console.warn(`Model not found: ${providerId}/${modelId}. Using default GPT-4.5 Turbo.`);
+  }
 
-    const chatHook = aiUseChat({
-        ...aiOptions,
-        api: '/api/chat',
-    });
+  const chatHook = aiUseChat({
+    ...aiOptions,
+    api: '/api/chat',
+  });
 
-    // Override the sendMessage function to inject model information
-    const originalSendMessage = chatHook.append;
-    const enhancedAppend = async (input: any) => {
-        const payload = {
-            ...input,
-            modelId,
-            providerId,
-        };
-        return originalSendMessage(payload);
+  // Override the sendMessage function to inject model information
+  const originalSendMessage = chatHook.append;
+  const enhancedAppend = async (input: any) => {
+    const payload = {
+      ...input,
+      modelId,
+      providerId,
     };
+    return originalSendMessage(payload);
+  };
 
-    return {
-        ...chatHook,
-        append: enhancedAppend,
-        currentModelId: modelId,
-        currentProviderId: providerId,
-    };
+  return {
+    ...chatHook,
+    append: enhancedAppend,
+    currentModelId: modelId,
+    currentProviderId: providerId,
+  };
 }
 ```
 
@@ -710,6 +765,7 @@ export function useChatWithModel(options: UseChatWithModelOptions = {}) {
 ---
 
 ### 3.6: Update ChatOrchestrator to Use Custom Hook
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/chat/ChatOrchestrator.tsx`
 **Lines**: 55-65 (useChat import and call)
 **Duration**: 7 minutes
@@ -720,40 +776,48 @@ export function useChatWithModel(options: UseChatWithModelOptions = {}) {
 Replace useChat with useChatWithModel and pass model parameters.
 
 **Current Code** (lines 1-65):
+
 ```typescript
 // @ts-ignore workaround for ai sdk type mismatch
-    const { messages, sendMessage: append, setMessages, status } = useChat({
-        id: activeThreadId || 'new-session',
-        onFinish: (message: any) => {
-            addMessage({
-                role: 'assistant',
-                content: getMsgContent(message),
-                parentId: currentLeafId
-            });
-        }
+const {
+  messages,
+  sendMessage: append,
+  setMessages,
+  status,
+} = useChat({
+  id: activeThreadId || 'new-session',
+  onFinish: (message: any) => {
+    addMessage({
+      role: 'assistant',
+      content: getMsgContent(message),
+      parentId: currentLeafId,
     });
+  },
+});
 ```
 
 **Add Import** (top of file after other imports):
+
 ```typescript
 import { useChatWithModel } from '@/lib/hooks/useChatWithModel';
 ```
 
 **Replace useChat with**:
+
 ```typescript
-    // @ts-ignore workaround for ai sdk type mismatch
-    const { messages, append, setMessages, status } = useChatWithModel({
-        id: activeThreadId || 'new-session',
-        modelId: threadModelId,
-        providerId: threadProviderId,
-        onFinish: (message: any) => {
-            addMessage({
-                role: 'assistant',
-                content: getMsgContent(message),
-                parentId: currentLeafId
-            });
-        }
+// @ts-ignore workaround for ai sdk type mismatch
+const { messages, append, setMessages, status } = useChatWithModel({
+  id: activeThreadId || 'new-session',
+  modelId: threadModelId,
+  providerId: threadProviderId,
+  onFinish: (message: any) => {
+    addMessage({
+      role: 'assistant',
+      content: getMsgContent(message),
+      parentId: currentLeafId,
     });
+  },
+});
 ```
 
 **Success Criteria**: Component uses custom hook, model parameters are passed automatically, chat functionality works without user-facing changes, models can be switched.
@@ -761,6 +825,7 @@ import { useChatWithModel } from '@/lib/hooks/useChatWithModel';
 ---
 
 ### 3.7: Add Model Selector to Chat UI
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/chat/ChatOrchestrator.tsx`
 **Lines**: 209-232 (View toggle section)
 **Duration**: 8 minutes
@@ -771,6 +836,7 @@ import { useChatWithModel } from '@/lib/hooks/useChatWithModel';
 Add a model selector dropdown next to or replacing the view toggle buttons.
 
 **Current Code** (lines 209-232):
+
 ```typescript
                     {/* View Toggle */}
                     <div className="flex justify-end pr-2 pt-2">
@@ -798,6 +864,7 @@ Add a model selector dropdown next to or replacing the view toggle buttons.
 ```
 
 **Replace With** (add model selector):
+
 ```typescript
                     {/* View Toggle & Model Selector */}
                     <div className="flex justify-between items-center pr-2 pt-2">
@@ -834,6 +901,7 @@ Add a model selector dropdown next to or replacing the view toggle buttons.
 ---
 
 ### 3.8: Wire Model Selector to Store Actions
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/chat-store.ts`
 **Duration**: 8 minutes
 **Dependencies**: 3.1
@@ -843,6 +911,7 @@ Add a model selector dropdown next to or replacing the view toggle buttons.
 Add setSelectedModel action to the chat store to persist model selection per thread.
 
 **Expected Additions to chat store**:
+
 ```typescript
 // Add to ChatThreadState interface:
 selectedModelId?: string;
@@ -869,6 +938,7 @@ setThreadModel: (threadId, modelId, providerId) => set((state) => ({
 ---
 
 ### 3.9: Integration Test - Chat API Receives Model Parameters
+
 **File**: `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`
 **Duration**: 8 minutes
 **Dependencies**: 2.6, 3.6
@@ -878,6 +948,7 @@ setThreadModel: (threadId, modelId, providerId) => set((state) => ({
 Manually test that the chat API receives and uses the selected model parameters.
 
 **Test Steps**:
+
 1. Open ChatOrchestrator in browser
 2. Open DevTools > Network tab
 3. Type a message and send it
@@ -897,12 +968,14 @@ Manually test that the chat API receives and uses the selected model parameters.
 ## Parallelization Plan
 
 ### Wave 1: Type Definitions & Store Schema (Parallel Safe)
+
 **Duration**: 10 minutes
 **Tasks**: 1.1, 1.2, 2.2, 2.3
 **Parallelism**: 4 tasks
 **Notes**: These are independent type/import additions with no dependencies on implementation
 
 ### Wave 2: Store Implementation & API Validation (Sequential within Wave)
+
 **Duration**: 12 minutes
 **Tasks**: 1.3, 1.4, 2.1, 2.4, 2.6
 **Dependencies**: Wave 1
@@ -910,6 +983,7 @@ Manually test that the chat API receives and uses the selected model parameters.
 **Notes**: API validation depends on imports from Wave 1; Store implementation depends on type definitions
 
 ### Wave 3: Component Integration (Sequential within Wave)
+
 **Duration**: 10 minutes
 **Tasks**: 1.5, 1.6, 3.1, 3.2, 3.3
 **Dependencies**: Wave 2
@@ -917,6 +991,7 @@ Manually test that the chat API receives and uses the selected model parameters.
 **Notes**: Components can be updated once store actions are ready
 
 ### Wave 4: Custom Hook & Component Refactor
+
 **Duration**: 10 minutes
 **Tasks**: 3.5, 3.6, 3.7
 **Dependencies**: Wave 3
@@ -924,6 +999,7 @@ Manually test that the chat API receives and uses the selected model parameters.
 **Notes**: Custom hook can be built independently, then integrated into ChatOrchestrator
 
 ### Wave 5: Chat Store Enhancement & Testing
+
 **Duration**: 10 minutes
 **Tasks**: 2.5, 3.8, 3.9, 1.7
 **Dependencies**: Wave 4
@@ -934,15 +1010,15 @@ Manually test that the chat API receives and uses the selected model parameters.
 
 ## File Modification Summary
 
-| File | Tasks | Status |
-|------|-------|--------|
-| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/types/video-studio.ts` | 1.1 | Add selectedModelId field |
-| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/video-studio-store.ts` | 1.2, 1.3, 1.4 | Add action, initial state, implementation |
-| `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/video-studio/VideoModelSelector.tsx` | 1.5, 1.6 | Use Zustand store instead of useState |
-| `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts` | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6 | Add model routing logic |
-| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/chat-store.ts` | 3.1, 3.8 | Add model selection state and actions |
-| `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/chat/ChatOrchestrator.tsx` | 3.2, 3.3, 3.4, 3.6, 3.7 | Integrate model selection UI and hooks |
-| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/hooks/useChatWithModel.ts` | 3.5 | NEW FILE - Custom chat hook |
+| File                                                                                                    | Tasks                        | Status                                    |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------- | ----------------------------------------- |
+| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/types/video-studio.ts`                      | 1.1                          | Add selectedModelId field                 |
+| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/video-studio-store.ts`                | 1.2, 1.3, 1.4                | Add action, initial state, implementation |
+| `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/video-studio/VideoModelSelector.tsx` | 1.5, 1.6                     | Use Zustand store instead of useState     |
+| `/Users/nick/Projects/Multi-Modal Generation Studio/src/app/api/chat/route.ts`                          | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6 | Add model routing logic                   |
+| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/store/chat-store.ts`                        | 3.1, 3.8                     | Add model selection state and actions     |
+| `/Users/nick/Projects/Multi-Modal Generation Studio/src/components/chat/ChatOrchestrator.tsx`           | 3.2, 3.3, 3.4, 3.6, 3.7      | Integrate model selection UI and hooks    |
+| `/Users/nick/Projects/Multi-Modal Generation Studio/src/lib/hooks/useChatWithModel.ts`                  | 3.5                          | NEW FILE - Custom chat hook               |
 
 ---
 
