@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS public.generations (
     prompt TEXT NOT NULL,
     model_id TEXT NOT NULL,
     provider TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+    provider_job_id TEXT,
     result_url TEXT,
     metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -62,6 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_parent_id ON public.messages(parent_id);
 CREATE INDEX IF NOT EXISTS idx_generations_user_id ON public.generations(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_usage_user_id ON public.api_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON public.api_usage(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_generations_provider_job_id ON public.generations(provider_job_id);
 
 -- RLS Policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;

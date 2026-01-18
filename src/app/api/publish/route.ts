@@ -17,6 +17,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Slack Webhook URL is missing' }, { status: 400 });
       }
 
+      // SSRF Protection: Validate webhook URL
+      try {
+        const url = new URL(webhookUrl);
+        if (url.protocol !== 'https:') {
+          return NextResponse.json({ error: 'Invalid webhook protocol' }, { status: 400 });
+        }
+        if (!url.hostname.endsWith('.slack.com') && !url.hostname.endsWith('.hooks.slack.com')) {
+          // Allow internal or specific debug URLs only in development
+          if (process.env.NODE_ENV !== 'development') {
+            return NextResponse.json({ error: 'Invalid webhook host' }, { status: 400 });
+          }
+        }
+      } catch (e) {
+        return NextResponse.json({ error: 'Malformed webhook URL' }, { status: 400 });
+      }
+
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
