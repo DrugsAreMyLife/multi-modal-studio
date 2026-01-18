@@ -3,16 +3,19 @@
  * Checks for required environment variables during startup
  */
 export function validateEnv() {
-  const required = [
-    'NEXTAUTH_SECRET',
-    'NEXTAUTH_URL',
-    'SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'UPSTASH_REDIS_REST_URL',
-    'UPSTASH_REDIS_REST_TOKEN',
-  ];
+  const required = ['NEXTAUTH_SECRET', 'NEXTAUTH_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+
+  // Redis is required for rate limiting, but can be local or cloud
+  const redisConfigured = !!(
+    process.env.REDIS_URL ||
+    (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  );
 
   const missing = required.filter((key) => !process.env[key]);
+
+  if (!redisConfigured) {
+    missing.push('REDIS_URL or (UPSTASH_REDIS_REST_URL/TOKEN)');
+  }
 
   if (missing.length > 0) {
     if (process.env.NODE_ENV === 'production') {
