@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/options';
+import { requireAuthAndRateLimit, RATE_LIMITS } from '@/lib/middleware/auth';
 import { createServerClient } from '@/lib/db/client';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Auth and rate limiting check
+  const authResult = await requireAuthAndRateLimit(req, '/api/share', RATE_LIMITS.chat);
+  if (!authResult.authenticated) {
+    return authResult.response;
   }
+
+  const userId = authResult.userId;
 
   try {
     const { type, content, metadata } = await req.json();
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
       .from('shared_content')
       .insert({
         slug,
-        user_id: session.user.id,
+        user_id: userId,
         type,
         content, // JSON representing the content (e.g. { url: '...' } or full analysis)
         metadata,
