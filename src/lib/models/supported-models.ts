@@ -59,6 +59,8 @@ export interface ModelConfig {
   // [NEW] Advanced Metadata for Power Users
   tips?: string[];
   pullString?: string; // For Ollama (e.g., 'ollama pull deepseek-r1:70b')
+  vramRequirement?: string; // VRAM requirement (e.g., '8GB', '16GB', '24GB')
+  quantizations?: string[]; // Available quantization variants (e.g., ['Q2_K', 'Q4_K_M', 'Q6_K'])
   paramRanges?: {
     temperature?: [number, number]; // [min, max]
     topK?: [number, number];

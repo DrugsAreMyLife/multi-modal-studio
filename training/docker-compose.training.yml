@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multi-modal-studio/training:latest
+    container_name: lora-training-job
+
+    # GPU configuration
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+        limits:
+          memory: 16G
+          cpus: '4'
+
+    # Volume mounts
+    volumes:
+      # Datasets (read-only)
+      - ../public/datasets:/workspace/datasets:ro
+      # Training outputs (read-write)
+      - ../public/outputs:/workspace/outputs:rw
+      # Model cache (read-write)
+      - ~/.cache/huggingface:/workspace/models:rw
+      # Training configuration (read-only)
+      - ./config.json:/workspace/config.json:ro
+      # Logs directory
+      - ./logs:/workspace/logs:rw
+
+    # Environment variables
+    environment:
+      # GPU configuration
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # Hugging Face configuration
+      - HF_HOME=/workspace/models
+      # PyTorch configuration
+      - CUDA_VISIBLE_DEVICES=0
+      - TORCH_CUDA_ARCH_LIST=8.0,8.6,8.9,9.0
+      # Distributed training (if needed)
+      - MASTER_ADDR=127.0.0.1
+      - MASTER_PORT=29500
+      # Other training configs
+      - PYTHONUNBUFFERED=1
+      - TOKENIZERS_PARALLELISM=false
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import torch; assert torch.cuda.is_available(), 'CUDA not available'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+    # Resource sharing
+    shm_size: 8gb
+
+    # Keep container running
+    stdin_open: true
+    tty: true
+
+    # Restart policy
+    restart: unless-stopped

@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LoRA Training Configuration",
+  "description": "Configuration schema for LoRA training wrapper",
+  "type": "object",
+  "required": ["dataset_path", "base_model", "output_path", "trigger_words"],
+  "properties": {
+    "dataset_path": {
+      "type": "string",
+      "description": "Path to dataset directory containing training images",
+      "examples": ["/path/to/dataset", "./data/training"]
+    },
+    "base_model": {
+      "type": "string",
+      "description": "Base model identifier or local path",
+      "examples": [
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        "runwayml/stable-diffusion-v1-5",
+        "stabilityai/stable-diffusion-2-1",
+        "/local/path/to/model"
+      ]
+    },
+    "output_path": {
+      "type": "string",
+      "description": "Output directory for checkpoints and results",
+      "examples": ["/path/to/output", "./outputs/lora_model"]
+    },
+    "trigger_words": {
+      "type": "array",
+      "description": "List of trigger words for the LoRA",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "examples": [
+        ["sks", "photo"],
+        ["ohwx", "person"]
+      ]
+    },
+    "training_params": {
+      "type": "object",
+      "description": "Training parameters (can also be top-level)",
+      "properties": {
+        "learning_rate": {
+          "type": "number",
+          "description": "Learning rate for training",
+          "minimum": 0.00001,
+          "maximum": 0.1,
+          "default": 0.0001,
+          "examples": [0.0001, 0.001, 0.00005]
+        },
+        "batch_size": {
+          "type": "integer",
+          "description": "Batch size for training",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 1,
+          "examples": [1, 2, 4, 8]
+        },
+        "epochs": {
+          "type": "integer",
+          "description": "Number of training epochs",
+          "minimum": 1,
+          "default": 10,
+          "examples": [5, 10, 20]
+        },
+        "steps": {
+          "type": "integer",
+          "description": "Total training steps (alternative to epochs)",
+          "minimum": 1,
+          "default": 1000,
+          "examples": [100, 500, 1000, 5000]
+        },
+        "resolution": {
+          "type": "integer",
+          "description": "Training image resolution (height/width)",
+          "minimum": 256,
+          "maximum": 2048,
+          "default": 512,
+          "examples": [256, 512, 768, 1024]
+        },
+        "lora_rank": {
+          "type": "integer",
+          "description": "LoRA rank (r parameter)",
+          "minimum": 1,
+          "maximum": 256,
+          "default": 16,
+          "examples": [4, 8, 16, 32, 64]
+        },
+        "lora_alpha": {
+          "type": "integer",
+          "description": "LoRA alpha (scaling parameter)",
+          "minimum": 1,
+          "default": 32,
+          "examples": [1, 2, 8, 16, 32, 64]
+        },
+        "checkpoint_steps": {
+          "type": "integer",
+          "description": "Save checkpoint every N steps",
+          "minimum": 1,
+          "default": 500,
+          "examples": [100, 500, 1000]
+        },
+        "validation_steps": {
+          "type": "integer",
+          "description": "Generate samples every N steps",
+          "minimum": 1,
+          "default": 100,
+          "examples": [50, 100, 500]
+        },
+        "gradient_accumulation_steps": {
+          "type": "integer",
+          "description": "Gradient accumulation steps",
+          "minimum": 1,
+          "default": 1,
+          "examples": [1, 2, 4]
+        }
+      }
+    },
+    "learning_rate": {
+      "type": "number",
+      "description": "Learning rate (top-level alternative)",
+      "minimum": 0.00001,
+      "maximum": 0.1,
+      "default": 0.0001
+    },
+    "batch_size": {
+      "type": "integer",
+      "description": "Batch size (top-level alternative)",
+      "minimum": 1,
+      "maximum": 64,
+      "default": 1
+    },
+    "epochs": {
+      "type": "integer",
+      "description": "Number of epochs (top-level alternative)",
+      "minimum": 1,
+      "default": 10
+    },
+    "steps": {
+      "type": "integer",
+      "description": "Training steps (top-level alternative)",
+      "minimum": 1,
+      "default": 1000
+    },
+    "resolution": {
+      "type": "integer",
+      "description": "Resolution (top-level alternative)",
+      "minimum": 256,
+      "maximum": 2048,
+      "default": 512
+    },
+    "lora_rank": {
+      "type": "integer",
+      "description": "LoRA rank (top-level alternative)",
+      "minimum": 1,
+      "maximum": 256,
+      "default": 16
+    },
+    "lora_alpha": {
+      "type": "integer",
+      "description": "LoRA alpha (top-level alternative)",
+      "minimum": 1,
+      "default": 32
+    },
+    "checkpoint_steps": {
+      "type": "integer",
+      "description": "Checkpoint frequency (top-level alternative)",
+      "minimum": 1,
+      "default": 500
+    },
+    "validation_steps": {
+      "type": "integer",
+      "description": "Validation frequency (top-level alternative)",
+      "minimum": 1,
+      "default": 100
+    },
+    "gradient_accumulation_steps": {
+      "type": "integer",
+      "description": "Gradient accumulation (top-level alternative)",
+      "minimum": 1,
+      "default": 1
+    }
+  },
+  "additionalProperties": false
+}

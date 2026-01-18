@@ -106,7 +106,16 @@ export async function checkRateLimit(
 
   const { redis } = await import('@/lib/redis'); // Dynamic import to avoid circular dep issues if any, or just standard import
 
-  if (!redis) return { allowed: true };
+  if (!redis) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[RateLimit] Redis client unavailable in production - failing closed');
+      return {
+        allowed: false,
+        response: NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 }),
+      };
+    }
+    return { allowed: true };
+  }
 
   const limiter = new Ratelimit({
     redis,

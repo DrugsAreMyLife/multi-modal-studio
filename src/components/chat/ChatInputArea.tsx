@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, LayoutGrid, Paperclip, X, File, FileCode, FileImage } from 'lucide-react';
+import { Send, LayoutGrid, Paperclip, X, File, FileCode, FileImage, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { VoiceInput } from './VoiceInput';
@@ -43,6 +43,8 @@ export function ChatInputArea({
   isEditing = false,
 }: ChatInputAreaProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [visionImages, setVisionImages] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (file: File) => {
     const id = crypto.randomUUID();
@@ -82,6 +84,43 @@ export function ChatInputArea({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files;
+    if (!files) return;
+
+    const newImages: string[] = [];
+    for (let i = 0; i < Math.min(files.length, 4 - visionImages.length); i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
+
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
+        newImages.push(base64);
+      } catch (err) {
+        console.error('Failed to convert image:', err);
+        toast.error(`Failed to process ${file.name}`);
+      }
+    }
+
+    if (newImages.length > 0) {
+      setVisionImages([...visionImages, ...newImages]);
+      toast.success(`Added ${newImages.length} image(s) for vision analysis`);
+    }
+
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveVisionImage = (index: number) => {
+    setVisionImages(visionImages.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if ((!value.trim() && attachments.length === 0) || isLoading) return;
@@ -97,6 +136,7 @@ export function ChatInputArea({
         .then(() => {
           onSendMessage(value, attachments);
           setAttachments([]);
+          setVisionImages([]);
         })
         .catch((e) => {
           if (e.message !== 'PULL_REQUIRED') {
@@ -108,6 +148,7 @@ export function ChatInputArea({
     } else {
       onSendMessage(value, attachments);
       setAttachments([]);
+      setVisionImages([]);
     }
   };
 
@@ -177,6 +218,53 @@ export function ChatInputArea({
         )}
       </AnimatePresence>
 
+      {/* Vision Images Preview */}
+      <AnimatePresence>
+        {visionImages.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="scrollbar-hide mb-2 flex gap-2 overflow-x-auto px-4 py-2"
+          >
+            {visionImages.map((image, index) => (
+              <div
+                key={`vision-${index}`}
+                className="border-border bg-muted/80 relative shrink-0 overflow-hidden rounded-md border"
+              >
+                {/* Using regular img tag for data URIs since Next/Image requires external URLs */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={image}
+                  alt={`Vision image ${index + 1}`}
+                  className="h-16 w-16 object-cover"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-destructive/20 hover:text-destructive absolute top-0 right-0 h-5 w-5 rounded-full bg-black/50"
+                  onClick={() => handleRemoveVisionImage(index)}
+                >
+                  <X size={12} />
+                </Button>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hidden image input */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={handleImageUpload}
+        className="hidden"
+        aria-label="Upload images for vision analysis"
+      />
+
       <form
         onSubmit={handleSubmit}
         className={cn(
@@ -203,6 +291,17 @@ export function ChatInputArea({
           }}
         >
           <Paperclip size={18} />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground rounded-full"
+          onClick={() => imageInputRef.current?.click()}
+          title="Add images for vision analysis"
+        >
+          <Camera size={18} />
         </Button>
 
         <VoiceInput onTranscription={(text) => onChange(value ? value + ' ' + text : text)} />

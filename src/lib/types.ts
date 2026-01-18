@@ -18,6 +18,7 @@ export interface MessageNode {
   childrenIds: string[];
   createdAt: number;
   attachments?: MediaAttachment[];
+  visionImages?: string[]; // Vision images for multimodal models
 
   // Metadata for UI state
   isEditing?: boolean;

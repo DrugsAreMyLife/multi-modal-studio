@@ -17,6 +17,10 @@ export async function POST(req: NextRequest) {
     return authResult.response;
   }
 
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCAL_MODEL_PULL !== 'true') {
+    return NextResponse.json({ error: 'Local model pulls are disabled' }, { status: 403 });
+  }
+
   try {
     const { model } = await req.json();
 

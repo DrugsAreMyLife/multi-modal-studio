@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Training artifacts
+outputs/
+checkpoints/
+datasets/
+*.pt
+*.pth
+*.safetensors
+
+# OS
+.DS_Store
+Thumbs.db
+.windows-thumbs.db
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Project specific
+.claude/
+node_modules/
+dist/
+build/
+*.ts
+*.tsx
+*.js
+!docker-entrypoint.sh

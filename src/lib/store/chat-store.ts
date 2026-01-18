@@ -115,6 +115,7 @@ export const useChatStore = create<ChatState>()(
           id,
           childrenIds: [],
           createdAt: Date.now(),
+          visionImages: partialMsg.visionImages,
         };
 
         const state = get();
@@ -379,6 +380,7 @@ export const useChatStore = create<ChatState>()(
           parent_id: message.parentId,
           role: message.role,
           content: message.content,
+          vision_images: message.visionImages,
           created_at: new Date(message.createdAt).toISOString(),
         });
 

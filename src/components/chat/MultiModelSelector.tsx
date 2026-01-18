@@ -26,6 +26,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   SUPPORTED_MODELS,
   ModelConfig,
   ModelCategory,
@@ -47,6 +54,14 @@ const CATEGORIES: { id: ModelCategory; label: string; icon: any }[] = [
   { id: 'aggregator', label: 'Aggregators', icon: Network },
 ];
 
+// Helper function for VRAM badge color
+const getVRAMBadgeColor = (vram: string): string => {
+  const gb = parseInt(vram);
+  if (gb < 8) return 'bg-green-500';
+  if (gb <= 16) return 'bg-yellow-500';
+  return 'bg-red-500';
+};
+
 // Providers to manage dynamics for
 const CUSTOM_PROVIDERS: { id: ModelProviderId; label: string }[] = [
   { id: 'lmstudio', label: 'LM Studio' },
@@ -66,6 +81,7 @@ export function MultiModelSelector({ onStartComparison, onCancel }: MultiModelSe
   const [pullProgress, setPullProgress] = useState<number>(0);
   const [pullStatus, setPullStatus] = useState<string>('');
   const [installedModels, setInstalledModels] = useState<Set<string>>(new Set());
+  const [selectedQuantizations, setSelectedQuantizations] = useState<Record<string, string>>({});
 
   // Dynamic Discovery State
   const [connectionSettings, setConnectionSettings] = useState<Record<string, string>>(() => {
@@ -267,6 +283,15 @@ export function MultiModelSelector({ onStartComparison, onCancel }: MultiModelSe
                         {model.providerId}
                       </Badge>
                       <span>{(model.contextWindow || 0) / 1000}k Ctx</span>
+                      {model.vramRequirement && (
+                        <Badge
+                          className={`${getVRAMBadgeColor(
+                            model.vramRequirement,
+                          )} h-4 px-1 text-[9px] text-white`}
+                        >
+                          {model.vramRequirement} VRAM
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -299,6 +324,33 @@ export function MultiModelSelector({ onStartComparison, onCancel }: MultiModelSe
                   </Button>
                 )}
               </div>
+
+              {/* Quantization Selector */}
+              {model.quantizations && model.quantizations.length > 1 && (
+                <div className="mt-2 mb-2">
+                  <Label className="mb-1 block text-xs font-medium">Quantization</Label>
+                  <Select
+                    value={selectedQuantizations[model.modelId] || model.quantizations[0]}
+                    onValueChange={(value) => {
+                      setSelectedQuantizations({
+                        ...selectedQuantizations,
+                        [model.modelId]: value,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {model.quantizations.map((quant) => (
+                        <SelectItem key={quant} value={quant} className="text-xs">
+                          {quant}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Tips */}
               {model.tips && (

@@ -1,0 +1,32 @@
+# Core ML frameworks
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Diffusers and transformers
+diffusers>=0.25.0
+transformers>=4.35.0
+
+# Training utilities
+accelerate>=0.24.0
+peft>=0.7.0
+
+# Model serialization
+safetensors>=0.4.0
+
+# Image processing
+pillow>=10.0.0
+
+# Data handling
+numpy>=1.24.0
+datasets>=2.14.0
+
+# Configuration and utilities
+pyyaml>=6.0
+tqdm>=4.66.0
+
+# Development and testing (optional, comment out for production)
+# pytest>=7.4.0
+# pytest-cov>=4.1.0
+# black>=23.11.0
+# flake8>=6.1.0
+# mypy>=1.7.0
