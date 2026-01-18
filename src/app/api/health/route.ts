@@ -1,10 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db/server';
 import { redis } from '@/lib/redis';
+import { requireAuth } from '@/lib/middleware/auth';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Require authentication for internal monitoring
+  const authResult = await requireAuth(req);
+  if (!authResult.authenticated) {
+    return authResult.response;
+  }
+
   const status: Record<string, any> = {
-    uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     services: {
       api: 'ok',
@@ -17,7 +23,6 @@ export async function GET() {
     // Check Database
     const { error: dbError } = await supabase.from('users').select('id').limit(1);
     status.services.database = dbError ? 'error' : 'ok';
-    if (dbError) status.services.database_detail = dbError.message;
 
     // Check Redis
     if (redis) {
@@ -37,10 +42,12 @@ export async function GET() {
 
     return NextResponse.json(status, { status: overallOk ? 200 : 503 });
   } catch (error: any) {
+    // Redact error details in production
+    const errorMessage = process.env.NODE_ENV === 'development' ? error.message : 'Internal error';
     return NextResponse.json(
       {
         status: 'critical_failure',
-        error: error.message,
+        error: errorMessage,
       },
       { status: 500 },
     );
