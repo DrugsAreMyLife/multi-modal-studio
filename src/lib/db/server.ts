@@ -161,12 +161,18 @@ export async function logGeneration(
 }
 
 // Get generation by provider job ID (for webhooks)
-export async function getGenerationByJobId(providerJobId: string): Promise<DbGeneration | null> {
-  const { data, error } = await supabaseServer
-    .from('generations')
-    .select('*')
-    .eq('provider_job_id', providerJobId)
-    .single();
+export async function getGenerationByJobId(
+  providerJobId: string,
+  userId?: string,
+): Promise<DbGeneration | null> {
+  let query = supabaseServer.from('generations').select('*').eq('provider_job_id', providerJobId);
+
+  // Scope to user if provided (security: prevent cross-user access)
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+
+  const { data, error } = await query.single();
 
   if (error || !data) {
     if (error) console.error('Failed to get generation by job ID:', error);
@@ -242,18 +248,24 @@ export async function createVideoJob(data: {
 /**
  * Get video job by provider job ID
  */
-export async function getVideoJobByProviderId(providerJobId: string): Promise<any | null> {
+export async function getVideoJobByProviderId(
+  providerJobId: string,
+  userId?: string,
+): Promise<any | null> {
   if (!supabaseServer) {
     console.error('Supabase server client not initialized');
     return null;
   }
 
   try {
-    const { data, error } = await supabaseServer
-      .from('video_jobs')
-      .select('*')
-      .eq('provider_job_id', providerJobId)
-      .single();
+    let query = supabaseServer.from('video_jobs').select('*').eq('provider_job_id', providerJobId);
+
+    // Scope to user if provided (security: prevent cross-user access)
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) {
       console.error('Error fetching video job:', error);

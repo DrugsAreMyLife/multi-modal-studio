@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pullModelStream } from '@/lib/ollama';
+import { requireAuthAndRateLimit, RATE_LIMITS } from '@/lib/middleware/auth';
 
 // Prevent Next.js from buffering the response
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max for pull
 
 export async function POST(req: NextRequest) {
+  // Auth and rate limiting check (expensive operation)
+  const authResult = await requireAuthAndRateLimit(
+    req,
+    '/api/models/local/pull',
+    RATE_LIMITS.generation,
+  );
+  if (!authResult.authenticated) {
+    return authResult.response;
+  }
+
   try {
     const { model } = await req.json();
 

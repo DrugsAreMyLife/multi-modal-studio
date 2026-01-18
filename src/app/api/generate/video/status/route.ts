@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing jobId parameter' }, { status: 400 });
   }
 
-  // 1. Check in video_jobs table first
-  const dbVideoJob = await getVideoJobByProviderId(jobId);
+  // 1. Check in video_jobs table first (scoped to user for security)
+  const dbVideoJob = await getVideoJobByProviderId(jobId, authResult.userId);
   if (dbVideoJob) {
     return NextResponse.json({
       jobId,
@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // 2. Fallback: Check generations table
-  const dbGen = await getGenerationByJobId(jobId);
+  // 2. Fallback: Check generations table (scoped to user for security)
+  const dbGen = await getGenerationByJobId(jobId, authResult.userId);
   if (dbGen) {
     return NextResponse.json({
       jobId,

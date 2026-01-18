@@ -17,7 +17,12 @@ export async function GET(req: NextRequest) {
 
   const apiKey = process.env.FREESOUND_API_KEY;
   if (!apiKey) {
-    // Return mock data if no key is configured, so the UI can be tested
+    // Fail in production to surface config errors
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'FREESOUND_API_KEY not configured' }, { status: 503 });
+    }
+
+    // Return mock data in development for testing
     console.warn('FREESOUND_API_KEY not set, returning mock data');
     return NextResponse.json({
       results: [

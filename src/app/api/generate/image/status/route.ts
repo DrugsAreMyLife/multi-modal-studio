@@ -20,8 +20,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Check database for the job
-    const dbJob = await getGenerationByJobId(jobId);
+    // Check database for the job (scoped to user for security)
+    const dbJob = await getGenerationByJobId(jobId, authResult.userId);
 
     if (dbJob) {
       return NextResponse.json({

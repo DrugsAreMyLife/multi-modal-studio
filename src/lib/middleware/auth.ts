@@ -68,9 +68,17 @@ export async function checkRateLimit(
   endpoint: string,
   config: RateLimitConfig,
 ): Promise<{ allowed: true } | { allowed: false; response: NextResponse }> {
-  // Graceful fallback if Redis is not configured
+  // Fail closed in production if Redis is not configured
   if (!ratelimit) {
-    // In strict production, you might want to log a warning here
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[RateLimit] Redis not configured in production - failing closed');
+      return {
+        allowed: false,
+        response: NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 }),
+      };
+    }
+    // Allow in development for easier testing
+    console.warn('[RateLimit] Redis not configured - allowing in development');
     return { allowed: true };
   }
 
