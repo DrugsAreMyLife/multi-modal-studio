@@ -39,3 +39,24 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!.env.example
+
+# generated artifacts
+/artifacts/
+/generated/
+/exports/
+
+# playwright
+/playwright-report/
+/test-results/
+/playwright/.cache/
+
+# local IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# husky
+.husky/_
