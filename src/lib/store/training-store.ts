@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Dataset, TrainingJob, TrainedModel } from '@/lib/db/training';
+import type { Dataset, TrainingJob, TrainedModel, JobStatus } from '@/lib/db/training';
 
 interface TrainingStore {
   // State
@@ -9,6 +9,11 @@ interface TrainingStore {
   trainedModels: TrainedModel[];
   selectedDatasetId: string | null;
   isLoading: boolean;
+
+  // Monitoring state
+  pollingIntervals: Record<string, NodeJS.Timeout>;
+  jobStatuses: Record<string, JobStatus>;
+  lastUpdate: number;
 
   // Dataset actions
   fetchDatasets: () => Promise<void>;
@@ -28,6 +33,12 @@ interface TrainingStore {
   cancelJob: (jobId: string) => Promise<void>;
   pollJobStatus: (jobId: string) => Promise<void>;
 
+  // Polling actions
+  startPolling: (jobId: string) => void;
+  stopPolling: (jobId: string) => void;
+  stopAllPolling: () => void;
+  getJobStatus: (jobId: string) => JobStatus | null;
+
   // Trained models actions
   fetchTrainedModels: () => Promise<void>;
 }
@@ -41,6 +52,9 @@ export const useTrainingStore = create<TrainingStore>()(
       trainedModels: [],
       selectedDatasetId: null,
       isLoading: false,
+      pollingIntervals: {},
+      jobStatuses: {},
+      lastUpdate: 0,
 
       // Fetch datasets
       fetchDatasets: async () => {
@@ -159,25 +173,94 @@ export const useTrainingStore = create<TrainingStore>()(
             method: 'POST',
           });
 
-          if (!response.ok) throw new Error('Failed to cancel job');
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to cancel job');
+          }
 
-          // Update local state
-          set((state) => ({
-            activeJobs: state.activeJobs.map((job) =>
-              job.id === jobId ? { ...job, status: 'cancelled' as const } : job,
-            ),
-          }));
+          // Stop polling for this job
+          get().stopPolling(jobId);
+
+          // Refresh active jobs
+          await get().fetchActiveJobs();
         } catch (error) {
           console.error('[TrainingStore] Cancel job error:', error);
           throw error;
         }
       },
 
-      // Poll job status
+      // Poll job status with exponential backoff
       pollJobStatus: async (jobId: string) => {
+        let retryCount = 0;
+        const maxRetries = 5;
+        let pollInterval = 5000; // Start at 5 seconds
+
+        const doPoll = async (): Promise<void> => {
+          try {
+            const { pollingIntervals } = get();
+
+            // Check if polling was stopped
+            if (!pollingIntervals[jobId]) {
+              return;
+            }
+
+            const response = await fetch(`/api/training/status?job_id=${jobId}`);
+            if (!response.ok) {
+              throw new Error(`Status fetch failed: ${response.status}`);
+            }
+
+            const status = await response.json();
+            retryCount = 0; // Reset retry count on success
+
+            // Update job in state
+            set((state) => ({
+              activeJobs: state.activeJobs.map((job) =>
+                job.id === jobId ? { ...job, ...status } : job,
+              ),
+              jobStatuses: { ...state.jobStatuses, [jobId]: status },
+              lastUpdate: Date.now(),
+            }));
+
+            // Continue polling if still active
+            if (['pending', 'queued', 'running'].includes(status.status)) {
+              const interval = setTimeout(() => doPoll(), pollInterval);
+              set((state) => ({
+                pollingIntervals: { ...state.pollingIntervals, [jobId]: interval },
+              }));
+            } else {
+              // Job completed, failed, or cancelled - refresh trained models
+              if (status.status === 'completed') {
+                await get().fetchTrainedModels();
+              }
+              // Stop polling
+              get().stopPolling(jobId);
+            }
+          } catch (error) {
+            console.error(`[TrainingStore] Polling error for job ${jobId}:`, error);
+
+            // Exponential backoff on error
+            if (retryCount < maxRetries) {
+              retryCount++;
+              pollInterval = Math.min(pollInterval * 2, 60000); // Max 60 seconds
+
+              const interval = setTimeout(() => doPoll(), pollInterval);
+              set((state) => ({
+                pollingIntervals: { ...state.pollingIntervals, [jobId]: interval },
+              }));
+            } else {
+              // Give up after max retries
+              console.error(`[TrainingStore] Max retries reached for job ${jobId}. Stopping poll.`);
+              get().stopPolling(jobId);
+            }
+          }
+        };
+
+        // Fetch initial status
         try {
           const response = await fetch(`/api/training/status?job_id=${jobId}`);
-          if (!response.ok) return;
+          if (!response.ok) {
+            throw new Error(`Initial status fetch failed: ${response.status}`);
+          }
 
           const status = await response.json();
 
@@ -186,18 +269,57 @@ export const useTrainingStore = create<TrainingStore>()(
             activeJobs: state.activeJobs.map((job) =>
               job.id === jobId ? { ...job, ...status } : job,
             ),
+            jobStatuses: { ...state.jobStatuses, [jobId]: status },
+            lastUpdate: Date.now(),
           }));
 
           // Continue polling if still active
           if (['pending', 'queued', 'running'].includes(status.status)) {
-            setTimeout(() => get().pollJobStatus(jobId), 5000);
+            const interval = setTimeout(() => doPoll(), pollInterval);
+            set((state) => ({
+              pollingIntervals: { ...state.pollingIntervals, [jobId]: interval },
+            }));
           } else if (status.status === 'completed') {
             // Refresh trained models when job completes
-            get().fetchTrainedModels();
+            await get().fetchTrainedModels();
           }
         } catch (error) {
-          console.error('[TrainingStore] Poll job status error:', error);
+          console.error('[TrainingStore] Initial poll for job error:', error);
+          const interval = setTimeout(() => doPoll(), pollInterval);
+          set((state) => ({
+            pollingIntervals: { ...state.pollingIntervals, [jobId]: interval },
+          }));
         }
+      },
+
+      // Start polling for a job
+      startPolling: (jobId: string) => {
+        get().pollJobStatus(jobId);
+      },
+
+      // Stop polling for a specific job
+      stopPolling: (jobId: string) => {
+        const { pollingIntervals } = get();
+        if (pollingIntervals[jobId]) {
+          clearTimeout(pollingIntervals[jobId]);
+          set((state) => {
+            const newIntervals = { ...state.pollingIntervals };
+            delete newIntervals[jobId];
+            return { pollingIntervals: newIntervals };
+          });
+        }
+      },
+
+      // Stop all polling
+      stopAllPolling: () => {
+        const { pollingIntervals } = get();
+        Object.values(pollingIntervals).forEach((interval) => clearTimeout(interval));
+        set({ pollingIntervals: {} });
+      },
+
+      // Get cached job status
+      getJobStatus: (jobId: string) => {
+        return get().jobStatuses[jobId] || null;
       },
 
       // Fetch trained models
@@ -217,7 +339,15 @@ export const useTrainingStore = create<TrainingStore>()(
       name: 'training-storage',
       partialize: (state) => ({
         selectedDatasetId: state.selectedDatasetId,
+        // Don't persist polling state
       }),
     },
   ),
 );
+
+// Cleanup intervals on window unload to prevent memory leaks
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    useTrainingStore.getState().stopAllPolling();
+  });
+}
