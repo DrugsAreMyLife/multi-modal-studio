@@ -53,6 +53,7 @@ interface AnalyticsState {
   getUsageByProvider: () => Record<string, { count: number; cost: number }>;
   isOverDailyBudget: () => boolean;
   isOverMonthlyBudget: () => boolean;
+  getForecastedCost: () => number;
 }
 
 export const useAnalyticsStore = create<AnalyticsState>()(
@@ -138,6 +139,14 @@ export const useAnalyticsStore = create<AnalyticsState>()(
 
       isOverDailyBudget: () => get().getTodayCost() >= get().dailyBudgetCents,
       isOverMonthlyBudget: () => get().getMonthCost() >= get().monthlyBudgetCents,
+      getForecastedCost: () => {
+        const monthCost = get().getMonthCost();
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const currentDay = now.getDate();
+        // Simple linear forecast
+        return (monthCost / currentDay) * daysInMonth;
+      },
     }),
     { name: 'analytics-storage', version: 1 },
   ),

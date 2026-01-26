@@ -70,7 +70,7 @@ export const useChatStore = create<ChatState>()(
           currentLeafId: null,
           createdAt: Date.now(),
           updatedAt: Date.now(),
-          modelId: 'gpt-4.5-turbo',
+          modelId: 'gpt-5',
           providerId: 'openai',
         };
 
@@ -118,16 +118,27 @@ export const useChatStore = create<ChatState>()(
           visionImages: partialMsg.visionImages,
         };
 
-        const state = get();
-        let threadId = state.activeThreadId;
-
-        // Auto-create thread if none exists
-        if (!threadId) {
-          threadId = get().createNewThread();
-        }
-
         set((state) => {
-          const thread = state.threads[threadId!];
+          let threadId = state.activeThreadId;
+          let newThreads = { ...state.threads };
+
+          // Create new thread if none active
+          if (!threadId) {
+            threadId = uuidv4();
+            newThreads[threadId] = {
+              id: threadId,
+              title: DEFAULT_THREAD_TITLE,
+              rootId: null,
+              messages: {},
+              currentLeafId: null,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              modelId: 'gpt-5',
+              providerId: 'openai',
+            };
+          }
+
+          const thread = newThreads[threadId!];
           if (!thread) return state;
 
           const newMessages = { ...thread.messages, [id]: newNode };
@@ -158,7 +169,8 @@ export const useChatStore = create<ChatState>()(
           };
 
           return {
-            threads: { ...state.threads, [threadId!]: updatedThread },
+            threads: { ...newThreads, [threadId!]: updatedThread },
+            activeThreadId: threadId,
           };
         });
 
@@ -396,7 +408,7 @@ export const useChatStore = create<ChatState>()(
           if (state.threads) {
             Object.keys(state.threads).forEach((id) => {
               if (!state.threads[id].modelId) {
-                state.threads[id].modelId = 'gpt-4.5-turbo';
+                state.threads[id].modelId = 'gpt-5';
               }
               if (!state.threads[id].providerId) {
                 state.threads[id].providerId = 'openai';

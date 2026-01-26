@@ -16,7 +16,9 @@ export type ModelProviderId =
   | 'lmstudio'
   | 'llamacpp'
   | 'kobold'
-  | 'text-gen-webui';
+  | 'heart'
+  | 'text-gen-webui'
+  | 'qwen-tts';
 
 export const LOCAL_PROVIDER_PRESETS = {
   ollama: { label: 'Ollama', baseUrl: 'http://localhost:11434', defaultPort: 11434 },
@@ -28,6 +30,11 @@ export const LOCAL_PROVIDER_PRESETS = {
     label: 'TextGenWebUI',
     baseUrl: 'http://localhost:5000/v1',
     defaultPort: 5000,
+  },
+  'qwen-tts': {
+    label: 'Qwen3-TTS',
+    baseUrl: 'http://localhost:8003',
+    defaultPort: 8003,
   },
 } as const;
 
@@ -65,6 +72,7 @@ export interface ModelConfig {
     temperature?: [number, number]; // [min, max]
     topK?: [number, number];
   };
+  supportedFeatures?: string[]; // [NEW] List of UI features (e.g., 'draft_mode', 'audio_sync', 'storyboard')
 }
 
 export const SUPPORTED_MODELS: ModelConfig[] = [
@@ -94,13 +102,33 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
   },
   {
     providerId: 'openai',
-    modelId: 'gpt-4.5-turbo',
-    name: 'GPT-4.5 Turbo',
+    modelId: 'gpt-image-1.5',
+    name: 'GPT-Image 1.5 (Design)',
     category: 'cloud',
     contextWindow: 128000,
     maxOutputTokens: 16384,
-    pricing: { inputPer1kTokens: 0.01, outputPer1kTokens: 0.03, currency: 'USD' },
+    pricing: { inputPer1kTokens: 0.04, outputPer1kTokens: 0.08, currency: 'USD' },
     capabilities: { vision: true, functionCalling: true, jsonMode: true, streaming: true },
+    supportedFeatures: ['controlled_design', 'text_precision', 'high_adherence'],
+    tips: ['Unbeatable prompt adherence', 'Best for text-heavy graphics'],
+  },
+  {
+    providerId: 'openai',
+    modelId: 'sora-2',
+    name: 'Sora 2 (Realism)',
+    category: 'cloud',
+    contextWindow: 128000,
+    maxOutputTokens: 16384,
+    pricing: { inputPer1kTokens: 0.5, outputPer1kTokens: 1.0, currency: 'USD' },
+    capabilities: { vision: true, functionCalling: false, jsonMode: false, streaming: false },
+    supportedFeatures: [
+      'audio_sync',
+      '25s_duration',
+      'storyboard',
+      'character_cameos',
+      'video_styles',
+    ],
+    tips: ['Gold standard for realism', 'Supports native synchronized audio'],
   },
 
   // Anthropic
@@ -117,37 +145,71 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
   },
   {
     providerId: 'anthropic',
-    modelId: 'claude-sonnet-4.5',
+    modelId: 'claude-4.5-sonnet-20251215',
     name: 'Claude 4.5 Sonnet',
     category: 'cloud',
     contextWindow: 200000,
-    maxOutputTokens: 8192,
+    maxOutputTokens: 16384,
     pricing: { inputPer1kTokens: 0.003, outputPer1kTokens: 0.015, currency: 'USD' },
     capabilities: { vision: true, functionCalling: true, jsonMode: true, streaming: true },
-    tips: ['Best daily driver', 'Excellent at code generation'],
+    tips: ['Best balanced model', 'Excellent at complex code generation'],
+  },
+  {
+    providerId: 'anthropic',
+    modelId: 'claude-4-5-haiku-20251015',
+    name: 'Claude 4.5 Haiku',
+    category: 'cloud',
+    contextWindow: 200000,
+    maxOutputTokens: 4096,
+    pricing: { inputPer1kTokens: 0.00025, outputPer1kTokens: 0.00125, currency: 'USD' },
+    capabilities: { vision: true, functionCalling: true, jsonMode: true, streaming: true },
   },
 
   // Google
   {
     providerId: 'google',
-    modelId: 'gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
+    modelId: 'gemini-3-pro',
+    name: 'Gemini 3 Pro',
     category: 'cloud',
     contextWindow: 2000000,
-    maxOutputTokens: 8192,
-    pricing: { inputPer1kTokens: 0.00125, outputPer1kTokens: 0.005, currency: 'USD' },
+    maxOutputTokens: 16384,
+    pricing: { inputPer1kTokens: 0.001, outputPer1kTokens: 0.003, currency: 'USD' },
     capabilities: { vision: true, functionCalling: true, jsonMode: true, streaming: true },
     tips: ['Massive context window (2M)', 'Great for analyzing full books/repos'],
   },
   {
     providerId: 'google',
-    modelId: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
+    modelId: 'gemini-3-flash',
+    name: 'Gemini 3 Flash',
     category: 'cloud',
     contextWindow: 1000000,
     maxOutputTokens: 8192,
-    pricing: { inputPer1kTokens: 0.00015, outputPer1kTokens: 0.0006, currency: 'USD' },
+    pricing: { inputPer1kTokens: 0.0001, outputPer1kTokens: 0.0004, currency: 'USD' },
     capabilities: { vision: true, functionCalling: true, jsonMode: true, streaming: true },
+  },
+  {
+    providerId: 'google',
+    modelId: 'veo-3.1',
+    name: 'Veo 3.1 (Cinematic)',
+    category: 'cloud',
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
+    pricing: { inputPer1kTokens: 0.2, outputPer1kTokens: 0.4, currency: 'USD' },
+    capabilities: { vision: true, functionCalling: false, jsonMode: false, streaming: false },
+    supportedFeatures: ['ingredients_to_video', 'native_vertical', '4k_upscale', 'rich_audio'],
+    tips: ['Best for cinematic dialogue', 'Supports up to 3 reference images'],
+  },
+  {
+    providerId: 'google',
+    modelId: 'gemini-3-pro-image',
+    name: 'Gemini 3 Pro Image (Nano Banana)',
+    category: 'cloud',
+    contextWindow: 1000000,
+    maxOutputTokens: 8192,
+    pricing: { inputPer1kTokens: 0.005, outputPer1kTokens: 0.01, currency: 'USD' },
+    capabilities: { vision: true, functionCalling: false, jsonMode: false, streaming: false },
+    supportedFeatures: ['object_consistency', 'branding_precision'],
+    tips: ['Extreme realism and object consistency'],
   },
 
   // DeepSeek
@@ -172,16 +234,34 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
     pricing: { inputPer1kTokens: 0.00055, outputPer1kTokens: 0.0022, currency: 'USD' },
     capabilities: { vision: false, functionCalling: true, jsonMode: true, streaming: true },
   },
+  {
+    providerId: 'openai', // Using Midjourney via proxy in registry for completeness
+    modelId: 'midjourney-7',
+    name: 'Midjourney 7.0',
+    category: 'cloud',
+    contextWindow: 1,
+    maxOutputTokens: 1,
+    pricing: { inputPer1kTokens: 0, outputPer1kTokens: 0, currency: 'USD' },
+    capabilities: { vision: true, functionCalling: false, jsonMode: false, streaming: false },
+    supportedFeatures: [
+      'draft_mode',
+      'personalization',
+      'omni_reference',
+      'layer_editing',
+      'niji_7_mode',
+    ],
+    tips: ['Unbeatable artistic quality', 'Draft mode is 10x faster'],
+  },
 
   // Meta & Mistral
   {
     providerId: 'meta',
-    modelId: 'llama-4-scout',
-    name: 'Llama 4 Scout',
+    modelId: 'llama-4.1-scout',
+    name: 'Llama 4.1 Scout',
     category: 'cloud',
     contextWindow: 128000,
     maxOutputTokens: 4096,
-    pricing: { inputPer1kTokens: 0.001, outputPer1kTokens: 0.003, currency: 'USD' },
+    pricing: { inputPer1kTokens: 0.0008, outputPer1kTokens: 0.0024, currency: 'USD' },
     capabilities: { vision: false, functionCalling: true, jsonMode: true, streaming: true },
   },
   {
@@ -241,6 +321,101 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
     pricing: { inputPer1kTokens: 0.0, outputPer1kTokens: 0.0, currency: 'USD' },
     capabilities: { vision: false, functionCalling: true, jsonMode: true, streaming: true },
     pullString: 'llama3.3:70b',
+  },
+  {
+    providerId: 'heart',
+    modelId: 'heartmula-v3-pro',
+    name: 'HeartMuLa v3 Pro (Local)',
+    category: 'local',
+    contextWindow: 1,
+    maxOutputTokens: 1,
+    pricing: { inputPer1kTokens: 0.0, outputPer1kTokens: 0.0, currency: 'USD' },
+    capabilities: { vision: false, functionCalling: false, jsonMode: false, streaming: false },
+    vramRequirement: '16GB',
+    tips: ['Artist-style music generation', 'Requires local Heart Worker'],
+  },
+
+  // --- QWEN3-TTS (Voice Cloning, Custom Voice, Voice Design) ---
+  {
+    providerId: 'qwen-tts',
+    modelId: 'qwen3-tts-1.7b-voice-clone',
+    name: 'Qwen3-TTS Voice Clone (1.7B)',
+    category: 'local',
+    contextWindow: 1,
+    maxOutputTokens: 1,
+    pricing: { inputPer1kTokens: 0.0, outputPer1kTokens: 0.0, currency: 'USD' },
+    capabilities: { vision: false, functionCalling: false, jsonMode: false, streaming: true },
+    vramRequirement: '8GB',
+    tips: [
+      '3-second voice cloning from any audio sample',
+      'Supports fine-tuning for custom voice training',
+      '10 languages: EN, CN, JP, KO, DE, FR, RU, PT, ES, IT',
+      '97ms first-packet latency (beats ElevenLabs)',
+    ],
+  },
+  {
+    providerId: 'qwen-tts',
+    modelId: 'qwen3-tts-0.6b-voice-clone',
+    name: 'Qwen3-TTS Voice Clone (0.6B)',
+    category: 'local',
+    contextWindow: 1,
+    maxOutputTokens: 1,
+    pricing: { inputPer1kTokens: 0.0, outputPer1kTokens: 0.0, currency: 'USD' },
+    capabilities: { vision: false, functionCalling: false, jsonMode: false, streaming: true },
+    vramRequirement: '4GB',
+    tips: [
+      'Lightweight voice cloning (reduced VRAM)',
+      'Fast inference for prototyping',
+      'Same 10 language support as 1.7B',
+    ],
+  },
+  {
+    providerId: 'qwen-tts',
+    modelId: 'qwen3-tts-1.7b-custom-voice',
+    name: 'Qwen3-TTS Custom Voice (1.7B)',
+    category: 'local',
+    contextWindow: 1,
+    maxOutputTokens: 1,
+    pricing: { inputPer1kTokens: 0.0, outputPer1kTokens: 0.0, currency: 'USD' },
+    capabilities: { vision: false, functionCalling: false, jsonMode: false, streaming: true },
+    vramRequirement: '8GB',
+    tips: [
+      '9 premium voice timbres with style control',
+      'Instruction-based emotion/tone adjustment',
+      'Voices: Vivian, Serena, Uncle Fu, Dylan, Eric, Ryan, Aiden, Ono Anna, Sohee',
+    ],
+  },
+  {
+    providerId: 'qwen-tts',
+    modelId: 'qwen3-tts-0.6b-custom-voice',
+    name: 'Qwen3-TTS Custom Voice (0.6B)',
+    category: 'local',
+    contextWindow: 1,
+    maxOutputTokens: 1,
+    pricing: { inputPer1kTokens: 0.0, outputPer1kTokens: 0.0, currency: 'USD' },
+    capabilities: { vision: false, functionCalling: false, jsonMode: false, streaming: true },
+    vramRequirement: '4GB',
+    tips: [
+      'Lightweight custom voices (reduced VRAM)',
+      'Same 9 premium timbres as 1.7B',
+      'Good for real-time applications',
+    ],
+  },
+  {
+    providerId: 'qwen-tts',
+    modelId: 'qwen3-tts-1.7b-voice-design',
+    name: 'Qwen3-TTS Voice Design (1.7B)',
+    category: 'local',
+    contextWindow: 1,
+    maxOutputTokens: 1,
+    pricing: { inputPer1kTokens: 0.0, outputPer1kTokens: 0.0, currency: 'USD' },
+    capabilities: { vision: false, functionCalling: false, jsonMode: false, streaming: true },
+    vramRequirement: '8GB',
+    tips: [
+      'Create entirely new voices from text descriptions',
+      'Describe age, gender, accent, emotion, speaking style',
+      'Example: "Male, 17 years old, tenor range, gaining confidence"',
+    ],
   },
 ];
 

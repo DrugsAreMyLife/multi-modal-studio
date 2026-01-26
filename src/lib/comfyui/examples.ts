@@ -13,6 +13,7 @@ import {
   getTemplateById,
   getTemplatesByCategory,
 } from './templates';
+import type { ComfyUIWorkflow } from './types';
 
 /**
  * Example 1: Simple text-to-image generation
@@ -226,7 +227,7 @@ export function example_inspectTemplate() {
 
   console.log(`\nNumber of nodes in workflow: ${Object.keys(template.workflow).length}`);
   console.log(
-    `Node types: ${Object.values(template.workflow)
+    `Node types: ${Object.values(template.workflow as ComfyUIWorkflow)
       .map((n) => n.class_type)
       .join(', ')}`,
   );

@@ -4,9 +4,10 @@ import { useRef, useEffect } from 'react';
 
 interface WaveformCanvasProps {
   isPlaying: boolean;
+  analyser?: AnalyserNode | null;
 }
 
-export function WaveformCanvas({ isPlaying }: WaveformCanvasProps) {
+export function WaveformCanvas({ isPlaying, analyser }: WaveformCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -17,7 +18,7 @@ export function WaveformCanvas({ isPlaying }: WaveformCanvasProps) {
     if (!ctx) return;
 
     let animationFrameId: number;
-    let offset = 0;
+    const dataArray = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
 
     const render = () => {
       if (!ctx) return;
@@ -34,37 +35,56 @@ export function WaveformCanvas({ isPlaying }: WaveformCanvasProps) {
       ctx.stroke();
 
       // Draw waveform bars
-      const bars = 50;
+      const bars = 64;
       const barWidth = width / bars;
 
+      if (analyser && dataArray && isPlaying) {
+        analyser.getByteFrequencyData(dataArray);
+      }
+
       for (let i = 0; i < bars; i++) {
-        // Mock dynamic data
-        const t = performance.now() / 200; // Speed
-        const noise = isPlaying ? Math.sin(i * 0.5 + t) * Math.cos(i * 0.2 + offset) : 0.1;
-        const h = isPlaying ? Math.abs(noise) * (height * 0.8) : 4;
+        let h = 4;
+
+        if (isPlaying && dataArray && analyser) {
+          // Use real data
+          const idx = Math.floor((i / bars) * dataArray.length * 0.5); // Focus on lower/mid frequencies
+          const value = dataArray[idx];
+          h = (value / 255) * height * 0.9;
+          h = Math.max(h, 4);
+        } else if (isPlaying) {
+          // Fallback to simpler oscillation if no analyser
+          const t = performance.now() / 200;
+          h = Math.abs(Math.sin(i * 0.2 + t)) * height * 0.5;
+        }
 
         const x = i * barWidth;
         const y = (height - h) / 2;
 
         // Gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, '#3b82f6'); // Blue
-        gradient.addColorStop(1, '#a855f7'); // Purple
+        const gradient = ctx.createLinearGradient(0, y, 0, y + h);
+        gradient.addColorStop(0, '#3b82f6');
+        gradient.addColorStop(1, '#a855f7');
 
         ctx.fillStyle = gradient;
 
-        // Rounded rect calc (simple rect for now)
-        ctx.fillRect(x + 1, y, barWidth - 2, h);
+        // Slightly rounded bars
+        const radius = 2;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x + 1, y, barWidth - 2, h, radius);
+        } else {
+          ctx.rect(x + 1, y, barWidth - 2, h);
+        }
+        ctx.fill();
       }
 
-      offset += 0.1;
       animationFrameId = requestAnimationFrame(render);
     };
 
     render();
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [isPlaying]);
+  }, [isPlaying, analyser]);
 
   return (
     <canvas

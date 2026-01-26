@@ -13,6 +13,7 @@ import {
   getTemplateById,
   getTemplatesByCategory,
 } from './templates';
+import type { ComfyUIWorkflow } from './types';
 
 describe('ComfyUI Templates', () => {
   describe('txt2imgBasicTemplate', () => {
@@ -24,7 +25,7 @@ describe('ComfyUI Templates', () => {
     });
 
     it('should have all required nodes', () => {
-      const workflow = txt2imgBasicTemplate.workflow;
+      const workflow = txt2imgBasicTemplate.workflow as ComfyUIWorkflow;
       expect(workflow['1']).toBeDefined();
       expect(workflow['1'].class_type).toBe('CheckpointLoaderSimple');
       expect(workflow['2']).toBeDefined();
@@ -49,12 +50,12 @@ describe('ComfyUI Templates', () => {
     });
 
     it('should include LoadImage node', () => {
-      const workflow = img2imgTemplate.workflow;
+      const workflow = img2imgTemplate.workflow as ComfyUIWorkflow;
       expect(workflow['1'].class_type).toBe('LoadImage');
     });
 
     it('should include VAEEncode node', () => {
-      const workflow = img2imgTemplate.workflow;
+      const workflow = img2imgTemplate.workflow as ComfyUIWorkflow;
       expect(workflow['5'].class_type).toBe('VAEEncode');
     });
 
@@ -74,7 +75,7 @@ describe('ComfyUI Templates', () => {
     });
 
     it('should include LoadImageMask node', () => {
-      const workflow = inpaintTemplate.workflow;
+      const workflow = inpaintTemplate.workflow as ComfyUIWorkflow;
       expect(workflow['2'].class_type).toBe('LoadImageMask');
     });
 
@@ -93,7 +94,7 @@ describe('ComfyUI Templates', () => {
     });
 
     it('should have minimal nodes', () => {
-      const workflow = upscaleTemplate.workflow;
+      const workflow = upscaleTemplate.workflow as ComfyUIWorkflow;
       expect(Object.keys(workflow).length).toBe(4);
       expect(workflow['2'].class_type).toBe('UpscaleModelLoader');
       expect(workflow['3'].class_type).toBe('ImageUpscaleWithModel');
@@ -115,7 +116,7 @@ describe('ComfyUI Templates', () => {
     });
 
     it('should include LoraLoader node', () => {
-      const workflow = loraGenerationTemplate.workflow;
+      const workflow = loraGenerationTemplate.workflow as ComfyUIWorkflow;
       expect(workflow['2'].class_type).toBe('LoraLoader');
     });
 
@@ -335,7 +336,7 @@ describe('ComfyUI Templates', () => {
 
     it('all templates should have class_type in nodes', () => {
       for (const template of COMFYUI_TEMPLATES) {
-        for (const node of Object.values(template.workflow)) {
+        for (const node of Object.values(template.workflow as ComfyUIWorkflow)) {
           expect(node.class_type).toBeDefined();
           expect(typeof node.class_type).toBe('string');
           expect(node.class_type.length).toBeGreaterThan(0);
@@ -345,7 +346,7 @@ describe('ComfyUI Templates', () => {
 
     it('all templates should have inputs object in nodes', () => {
       for (const template of COMFYUI_TEMPLATES) {
-        for (const node of Object.values(template.workflow)) {
+        for (const node of Object.values(template.workflow as ComfyUIWorkflow)) {
           expect(node.inputs).toBeDefined();
           expect(typeof node.inputs).toBe('object');
         }
@@ -377,10 +378,10 @@ describe('ComfyUI Templates', () => {
       }
     });
 
-    it('enum parameters should have options', () => {
+    it('select parameters should have options', () => {
       for (const template of COMFYUI_TEMPLATES) {
         for (const param of template.parameters) {
-          if (param.type === 'enum') {
+          if (param.type === 'select') {
             expect(param.options).toBeDefined();
             expect(Array.isArray(param.options)).toBe(true);
           }

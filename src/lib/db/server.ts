@@ -9,25 +9,38 @@ const supabaseAnonKey =
   process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Create server-side Supabase client with service role
-let supabaseServer: SupabaseClient;
-
-if (supabaseUrl && supabaseServiceKey) {
-  // Use service role key for server-side operations (bypasses RLS)
-  supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: { persistSession: false },
-  });
-} else if (supabaseUrl && supabaseAnonKey) {
-  // Fallback to anon key (respects RLS)
-  console.warn('Using anon key on server - service role key recommended');
-  supabaseServer = createClient(supabaseUrl, supabaseAnonKey, {
+// Create server-side Supabase client with anon key (Respects RLS)
+let supabaseAnon: SupabaseClient;
+if (supabaseUrl && supabaseAnonKey) {
+  supabaseAnon = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false },
   });
 } else {
-  // Stub for development without Supabase
-  console.warn('Supabase not configured - using stub server client');
-  supabaseServer = {
+  supabaseAnon = createStubClient();
+}
+
+// Create server-side Supabase client with service role (Bypasses RLS)
+// ONLY use this for system-level tasks, webhooks, or admin operations
+let supabaseAdmin: SupabaseClient;
+if (supabaseUrl && supabaseServiceKey) {
+  supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false },
+  });
+} else {
+  console.warn('Supabase service role not configured - falling back to anon stub');
+  supabaseAdmin = supabaseAnon;
+}
+
+function createStubClient(): SupabaseClient {
+  return {
     from: () => ({
-      select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
+      select: () => ({
+        eq: () => ({
+          order: () => Promise.resolve({ data: [], error: null }),
+          single: () => Promise.resolve({ data: null, error: null }),
+        }),
+        single: () => Promise.resolve({ data: null, error: null }),
+      }),
       insert: () => ({
         select: () => ({ single: () => Promise.resolve({ data: null, error: null }) }),
       }),
@@ -44,7 +57,7 @@ if (supabaseUrl && supabaseServiceKey) {
   } as any;
 }
 
-export { supabaseServer as supabase };
+export { supabaseAnon as supabase, supabaseAdmin };
 
 // Export types (same as client)
 export interface DbUser {
@@ -99,7 +112,7 @@ export interface DbApiUsage {
 
 // Helper functions (server-side only)
 export async function getUserConversations(userId: string): Promise<DbConversation[]> {
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAnon
     .from('conversations')
     .select('*')
     .eq('user_id', userId)
@@ -113,7 +126,7 @@ export async function getUserConversations(userId: string): Promise<DbConversati
 }
 
 export async function getConversationMessages(conversationId: string): Promise<DbMessage[]> {
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAnon
     .from('messages')
     .select('*')
     .eq('conversation_id', conversationId)
@@ -129,7 +142,7 @@ export async function getConversationMessages(conversationId: string): Promise<D
 export async function saveMessage(
   message: Omit<DbMessage, 'id' | 'created_at'>,
 ): Promise<DbMessage | null> {
-  const { data, error } = await supabaseServer.from('messages').insert(message).select().single();
+  const { data, error } = await supabaseAnon.from('messages').insert(message).select().single();
 
   if (error || !data) {
     if (error) console.error('Failed to save message:', error);
@@ -139,7 +152,7 @@ export async function saveMessage(
 }
 
 export async function trackApiUsage(usage: Omit<DbApiUsage, 'id' | 'created_at'>): Promise<void> {
-  const { error } = await supabaseServer.from('api_usage').insert(usage);
+  const { error } = await supabaseAnon.from('api_usage').insert(usage);
 
   if (error) console.error('Failed to track API usage:', error);
 }
@@ -147,7 +160,7 @@ export async function trackApiUsage(usage: Omit<DbApiUsage, 'id' | 'created_at'>
 export async function logGeneration(
   generation: Omit<DbGeneration, 'id' | 'created_at'>,
 ): Promise<DbGeneration | null> {
-  const { data, error } = await supabaseServer
+  const { data, error } = await supabaseAnon
     .from('generations')
     .insert(generation)
     .select()
@@ -165,7 +178,7 @@ export async function getGenerationByJobId(
   providerJobId: string,
   userId?: string,
 ): Promise<DbGeneration | null> {
-  let query = supabaseServer.from('generations').select('*').eq('provider_job_id', providerJobId);
+  let query = supabaseAnon.from('generations').select('*').eq('provider_job_id', providerJobId);
 
   // Scope to user if provided (security: prevent cross-user access)
   if (userId) {
@@ -195,7 +208,7 @@ export async function updateGenerationResult(
   if (updates.status) updateData.status = updates.status;
   if (updates.metadata) updateData.metadata = updates.metadata;
 
-  const { error } = await supabaseServer.from('generations').update(updateData).eq('id', id);
+  const { error } = await supabaseAnon.from('generations').update(updateData).eq('id', id);
 
   if (error) {
     console.error('Failed to update generation result:', error);
@@ -214,13 +227,13 @@ export async function createVideoJob(data: {
   prompt: string;
   metadata?: Record<string, any>;
 }): Promise<string | null> {
-  if (!supabaseServer) {
+  if (!supabaseAnon) {
     console.error('Supabase server client not initialized');
     return null;
   }
 
   try {
-    const { data: job, error } = await supabaseServer
+    const { data: job, error } = await supabaseAnon
       .from('video_jobs')
       .insert({
         user_id: data.user_id,
@@ -252,13 +265,13 @@ export async function getVideoJobByProviderId(
   providerJobId: string,
   userId?: string,
 ): Promise<any | null> {
-  if (!supabaseServer) {
+  if (!supabaseAnon) {
     console.error('Supabase server client not initialized');
     return null;
   }
 
   try {
-    let query = supabaseServer.from('video_jobs').select('*').eq('provider_job_id', providerJobId);
+    let query = supabaseAnon.from('video_jobs').select('*').eq('provider_job_id', providerJobId);
 
     // Scope to user if provided (security: prevent cross-user access)
     if (userId) {
@@ -292,13 +305,13 @@ export async function updateVideoJob(
     metadata?: Record<string, any>;
   },
 ): Promise<boolean> {
-  if (!supabaseServer) {
+  if (!supabaseAnon) {
     console.error('Supabase server client not initialized');
     return false;
   }
 
   try {
-    const { error } = await supabaseServer
+    const { error } = await supabaseAnon
       .from('video_jobs')
       .update(updates)
       .eq('provider_job_id', providerJobId);

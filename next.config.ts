@@ -1,6 +1,13 @@
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
+  // Enable standalone output for Docker deployment
+  output: 'standalone',
+
+  // BullMQ/ioredis requires native Node.js modules - must be external
+  serverExternalPackages: ['ioredis', 'bullmq'],
+
   // Security headers for production readiness
   async headers() {
     return [
@@ -12,45 +19,45 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'", // Default to same-origin only
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Allow scripts from self and inline (required for Next.js)
-              "style-src 'self' 'unsafe-inline'", // Allow styles from self and inline (required for styled-components)
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.sentry.io", // Allow Sentry scripts
+              "style-src 'self' 'unsafe-inline'", // Allow styles from self and inline
               [
-                "img-src 'self' data: blob:",
-                'https://images.openai.com', // OpenAI DALL-E images
-                'https://oaidalleapiprodscus.blob.core.windows.net', // OpenAI DALL-E storage
-                'https://replicate.delivery', // Replicate AI image delivery
-                'https://*.runwayml.com', // Runway ML image/video outputs
-                'https://*.lumalabs.ai', // Luma Labs Dream Machine outputs
-                'https://*.supabase.co', // Supabase storage
-                'https://img.youtube.com', // YouTube thumbnails
-                'https://picsum.photos', // Stock placeholder images
-                'https:', // Fallback for other AI-generated images
-              ].join(' '), // Allow images from various sources
-              "font-src 'self' data:", // Allow fonts from self and data URIs
+                "img-src 'self' data: blob: https://*.sentry.io",
+                'https://images.openai.com',
+                'https://oaidalleapiprodscus.blob.core.windows.net',
+                'https://replicate.delivery',
+                'https://*.runwayml.com',
+                'https://*.lumalabs.ai',
+                'https://*.supabase.co',
+                'https://img.youtube.com',
+                'https://picsum.photos',
+                'https:',
+              ].join(' '),
+              "font-src 'self' data:",
               [
-                "connect-src 'self'",
-                'https://api.anthropic.com', // Claude AI
-                'https://api.deepseek.com', // Deepseek LLM
-                'https://api.elevenlabs.io', // ElevenLabs TTS
-                'https://api.groq.com', // Groq LLM
-                'https://api.lumalabs.ai', // Luma Labs Dream Machine
-                'https://api.openai.com', // OpenAI GPT/DALL-E
-                'https://api.replicate.com', // Replicate AI models
-                'https://api.runwayml.com', // Runway ML Gen-3
-                'https://api.stability.ai', // Stability AI (Stable Diffusion)
-                'https://api.unsplash.com', // Unsplash stock photos
-                'https://api.x.ai', // X.AI/Grok LLM
-                'https://*.googleapis.com', // Google AI (Gemini)
-                'https://*.supabase.co', // Supabase backend
-                'https://openrouter.ai', // OpenRouter multi-model routing
-                'http://localhost:*', // Local model servers (Ollama, LM Studio)
-                'wss:', // WebSocket connections
-                'https:', // Fallback for other HTTPS APIs
-              ].join(' '), // Allow API connections
-              "media-src 'self' blob: https:", // Allow media from self, blobs, and HTTPS sources
-              "frame-ancestors 'none'", // Prevent embedding in iframes (clickjacking protection)
-              "base-uri 'self'", // Restrict base tag to same origin
-              "form-action 'self'", // Restrict form submissions to same origin
+                "connect-src 'self' https://*.sentry.io",
+                'https://api.anthropic.com',
+                'https://api.deepseek.com',
+                'https://api.elevenlabs.io',
+                'https://api.groq.com',
+                'https://api.lumalabs.ai',
+                'https://api.openai.com',
+                'https://api.replicate.com',
+                'https://api.runwayml.com',
+                'https://api.stability.ai',
+                'https://api.unsplash.com',
+                'https://api.x.ai',
+                'https://*.googleapis.com',
+                'https://*.supabase.co',
+                'https://openrouter.ai',
+                'http://localhost:*',
+                'wss:',
+                'https:',
+              ].join(' '),
+              "media-src 'self' blob: https:",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
             ].join('; '),
           },
           // X-Frame-Options - Prevents clickjacking attacks by blocking iframe embedding
@@ -92,4 +99,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: 'multi-modal-studio',
+  project: 'frontend',
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+  // Migrated from deprecated options (Sentry SDK 8+)
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeReplayIframe: true,
+    excludeReplayShadowDom: true,
+  },
+});

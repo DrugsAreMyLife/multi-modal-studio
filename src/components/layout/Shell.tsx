@@ -12,6 +12,7 @@ import { WorkflowStudio } from '@/components/workflow/WorkflowStudio';
 import { AudioStudio } from '@/components/audio-studio/AudioStudio';
 import { IconStudio } from '@/components/icon-studio/IconStudio';
 import { AnalysisStudio } from '@/components/analysis-studio/AnalysisStudio';
+import { MusicStudio } from '@/components/music-studio/MusicStudio';
 import { Timeline } from '@/components/timeline/Timeline';
 import { KeyframeEditor } from '@/components/timeline/KeyframeEditor';
 import { AudioVisualizer } from '@/components/audio/AudioVisualizer';
@@ -20,6 +21,10 @@ import { UnifiedAssetPicker } from '@/components/cloud/UnifiedAssetPicker';
 import { GlobalChatOverlay } from '@/components/chat/GlobalChatOverlay';
 import { DetachedChatManager } from '@/components/chat/DetachedChatManager';
 import { CommandPalette } from '@/components/ui/CommandPalette';
+import { TrainingMonitor } from '@/components/training/TrainingMonitor';
+import { DatasetManager } from '@/components/training/DatasetManager';
+import { RemixStudio } from '@/components/remix-studio/RemixStudio';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUIStore } from '@/lib/store/ui-store';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { ShortcutOverlay } from '@/components/ui/ShortcutOverlay';
 import { useAutoTitle } from '@/lib/store/useAutoTitle';
 import { StudioErrorBoundary } from '@/components/shared/StudioErrorBoundary';
+import { CostTracker } from '@/components/shared/CostTracker';
 
 interface ShellProps {
   children?: React.ReactNode;
@@ -202,6 +208,63 @@ export function Shell() {
                   </StudioErrorBoundary>
                 </motion.div>
               )}
+
+              {currentView === 'training' && (
+                <motion.div
+                  key="training"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Training Studio">
+                    <div className="flex flex-col gap-6">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-2xl font-bold">Training Studio</h2>
+                      </div>
+                      <Tabs defaultValue="monitor" className="w-full">
+                        <TabsList className="grid w-[400px] grid-cols-2">
+                          <TabsTrigger value="monitor">Active Jobs</TabsTrigger>
+                          <TabsTrigger value="datasets">Datasets</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="monitor" className="mt-6">
+                          <TrainingMonitor />
+                        </TabsContent>
+                        <TabsContent value="datasets" className="mt-6">
+                          <DatasetManager />
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'remix' && (
+                <motion.div
+                  key="remix"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <RemixStudio />
+                </motion.div>
+              )}
+              {currentView === 'music' && (
+                <motion.div
+                  key="music"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full px-4"
+                >
+                  <StudioErrorBoundary name="Music Studio">
+                    <MusicStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </main>
@@ -217,6 +280,9 @@ export function Shell() {
             className="border-border bg-background/50 hidden overflow-hidden border-l p-4 backdrop-blur-sm xl:block"
           >
             <div className="w-80">
+              <div className="mb-6">
+                <CostTracker />
+              </div>
               <div className="mb-4 text-sm font-medium">Properties</div>
               <div className="text-muted-foreground text-xs">
                 Select an item to view properties.

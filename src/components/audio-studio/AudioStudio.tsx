@@ -1,48 +1,281 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import { useAudioStudioStore } from '@/lib/store/audio-studio-store';
 import { WaveformCanvas } from './WaveformCanvas';
 import { VoiceSelector } from './VoiceSelector';
 import { AudioControls } from './AudioControls';
+import { QwenTTSPanel } from './QwenTTSPanel';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Composer } from './daw/Composer';
-import { Play, Mic, Download, Music as MusicIcon, AudioLines, LayoutList } from 'lucide-react';
+import {
+  Play,
+  Mic,
+  Download,
+  Music as MusicIcon,
+  AudioLines,
+  LayoutList,
+  Sparkles,
+  GraduationCap,
+  Settings2,
+  Info,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { GenerationSkeleton } from '@/components/ui/generation-skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function AudioStudio() {
-  const { mode, prompt, setPrompt, isPlaying, setIsPlaying, addClip, clips } =
-    useAudioStudioStore();
+  const {
+    mode,
+    prompt,
+    setPrompt,
+    isPlaying,
+    setIsPlaying,
+    addClip,
+    clips,
+    fetchVoices,
+    selectedVoiceId,
+    voices,
+    qwenMode,
+    cloneRef,
+    xVectorOnlyMode,
+    voiceDescription,
+    styleInstruction,
+    selectedLanguage,
+    trainingSamples,
+    setActiveTrainingJob,
+    // Voice tuning parameters
+    stability,
+    similarity,
+    voiceStyle,
+    useSpeakerBoost,
+    setParams,
+  } = useAudioStudioStore();
+
+  useEffect(() => {
+    fetchVoices();
+  }, [fetchVoices]);
 
   const [viewMode, setViewMode] = useState<'generate' | 'compose'>('generate');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const handleGenerate = async () => {
-    if (!prompt.trim() || isGenerating) return;
+  // Check if selected voice is a Qwen3-TTS voice
+  const isQwenVoice =
+    selectedVoiceId?.startsWith('qwen-') || selectedVoiceId?.startsWith('trained-');
+  const selectedVoice = voices.find((v) => v.id === selectedVoiceId);
+
+  // Get the speaker name from voice ID (e.g., 'qwen-vivian' -> 'Vivian')
+  const getQwenSpeaker = useCallback(() => {
+    if (!selectedVoiceId?.startsWith('qwen-')) return 'Aiden';
+    const speakerMap: Record<string, string> = {
+      'qwen-vivian': 'Vivian',
+      'qwen-serena': 'Serena',
+      'qwen-uncle-fu': 'Uncle_Fu',
+      'qwen-dylan': 'Dylan',
+      'qwen-eric': 'Eric',
+      'qwen-ryan': 'Ryan',
+      'qwen-aiden': 'Aiden',
+      'qwen-ono-anna': 'Ono_Anna',
+      'qwen-sohee': 'Sohee',
+    };
+    return speakerMap[selectedVoiceId] || 'Aiden';
+  }, [selectedVoiceId]);
+
+  const playAudio = (url: string) => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.onplay = () => setIsPlaying(true);
+      audioRef.current.onended = () => setIsPlaying(false);
+      audioRef.current.onpause = () => setIsPlaying(false);
+    }
+
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const source = audioCtxRef.current.createMediaElementSource(audioRef.current);
+      const newAnalyser = audioCtxRef.current.createAnalyser();
+      newAnalyser.fftSize = 256;
+      source.connect(newAnalyser);
+      newAnalyser.connect(audioCtxRef.current.destination);
+      setAnalyser(newAnalyser);
+    }
+
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+
+    audioRef.current.src = url;
+    audioRef.current.play();
+  };
+
+  const generateWithQwen = async (): Promise<Response> => {
+    const baseBody = {
+      text: prompt,
+      language: selectedLanguage,
+    };
+
+    switch (qwenMode) {
+      case 'clone':
+        if (!cloneRef?.audioUrl) {
+          throw new Error('Please upload a reference audio for voice cloning');
+        }
+        if (!xVectorOnlyMode && !cloneRef.transcript) {
+          throw new Error('Please provide a transcript for better cloning quality');
+        }
+        return fetch('/api/generate/audio/qwen/clone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...baseBody,
+            refAudio: cloneRef.audioUrl,
+            refText: cloneRef.transcript,
+            xVectorOnlyMode,
+          }),
+        });
+
+      case 'design':
+        if (!voiceDescription.trim()) {
+          throw new Error('Please describe the voice you want to create');
+        }
+        return fetch('/api/generate/audio/qwen/design', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...baseBody,
+            instruct: voiceDescription,
+          }),
+        });
+
+      case 'custom':
+      default:
+        return fetch('/api/generate/audio/qwen/custom', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...baseBody,
+            speaker: getQwenSpeaker(),
+            instruct: styleInstruction,
+          }),
+        });
+    }
+  };
+
+  const handleStartTraining = async () => {
+    if (trainingSamples.length < 5) {
+      toast.error('Need at least 5 samples', {
+        description: 'Upload more audio files to start training',
+      });
+      return;
+    }
+
+    const validSamples = trainingSamples.filter((s) => s.transcript && s.validated);
+    if (validSamples.length < trainingSamples.length) {
+      toast.error('Missing transcripts', {
+        description: 'Add transcripts to all samples before training',
+      });
+      return;
+    }
 
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/generate/audio', {
+      const formData = new FormData();
+      formData.append('name', `Custom Voice ${Date.now()}`);
+      formData.append('language', selectedLanguage);
+      formData.append('transcripts', JSON.stringify(trainingSamples.map((s) => s.transcript)));
+
+      trainingSamples.forEach((sample, index) => {
+        formData.append(`sample_${index}`, sample.audioFile);
+      });
+
+      const response = await fetch('/api/generate/audio/qwen/train', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: prompt,
-          provider: 'openai', // Default to OpenAI for now
-          voiceId: 'alloy',
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate audio');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to start training');
+      }
+
+      const data = await response.json();
+
+      setActiveTrainingJob({
+        id: data.jobId,
+        name: data.name,
+        status: 'pending',
+        progress: 0,
+        datasetSize: trainingSamples.length,
+        createdAt: Date.now(),
+      });
+
+      toast.success('Training started!', {
+        description: 'Your custom voice will be ready in 10-30 minutes',
+      });
+    } catch (err) {
+      console.error('Training error:', err);
+      toast.error('Failed to start training', { description: (err as Error).message });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (isGenerating) return;
+
+    // For training mode, handle separately
+    if (isQwenVoice && qwenMode === 'train') {
+      await handleStartTraining();
+      return;
+    }
+
+    if (!prompt.trim()) {
+      toast.error('Please enter text to synthesize');
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      let response: Response;
+
+      if (isQwenVoice) {
+        // Route to appropriate Qwen3-TTS endpoint
+        response = await generateWithQwen();
+      } else {
+        // Use existing cloud providers
+        const isElevenLabs = selectedVoice?.name.includes('ElevenLabs');
+        response = await fetch('/api/generate/audio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: prompt,
+            provider: isElevenLabs ? 'elevenlabs' : 'openai',
+            voiceId: selectedVoiceId,
+            // ElevenLabs voice tuning parameters
+            ...(isElevenLabs && {
+              stability,
+              similarity_boost: similarity,
+              style: voiceStyle,
+              use_speaker_boost: useSpeakerBoost,
+            }),
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Generation failed' }));
+        throw new Error(error.error || 'Failed to generate audio');
       }
 
       const blob = await response.blob();
@@ -54,19 +287,31 @@ export function AudioStudio() {
         duration: 0,
         prompt: prompt,
         mode: mode,
-        settings: {},
+        voiceId: selectedVoiceId || undefined,
+        settings: { qwenMode: isQwenVoice ? qwenMode : undefined },
       });
 
-      const audio = new Audio(url);
-      audio.onplay = () => setIsPlaying(true);
-      audio.onended = () => setIsPlaying(false);
-      audio.play();
+      playAudio(url);
+      toast.success('Audio generated!');
     } catch (err) {
       console.error('Audio generation error:', err);
       toast.error('Failed to generate audio', { description: (err as Error).message });
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Get button text based on mode
+  const getButtonText = () => {
+    if (isGenerating) return 'Running...';
+    if (isQwenVoice && qwenMode === 'train') return 'Start Training';
+    return 'Generate Audio';
+  };
+
+  const getButtonIcon = () => {
+    if (isQwenVoice && qwenMode === 'train') return <GraduationCap size={16} />;
+    if (isQwenVoice) return <Sparkles size={16} />;
+    return <Mic size={16} />;
   };
 
   const activeClips = Object.values(clips).sort((a, b) => b.createdAt - a.createdAt);
@@ -116,7 +361,7 @@ export function AudioStudio() {
                     </div>
                   ) : (
                     <>
-                      <WaveformCanvas isPlaying={isPlaying} />
+                      <WaveformCanvas isPlaying={isPlaying} analyser={analyser} />
                       {!isPlaying && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Button
@@ -194,38 +439,195 @@ export function AudioStudio() {
                   <div className="space-y-6 p-4">
                     <VoiceSelector />
 
-                    <div className="space-y-2">
-                      <label className="px-1 text-xs font-medium">Prompt</label>
-                      <Textarea
-                        placeholder={
-                          mode === 'music' ? 'Lo-fi hip hop beat...' : 'Enter text to speak...'
-                        }
-                        className="bg-background/50 min-h-[100px] resize-none text-sm"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                      />
-                    </div>
+                    {/* Show QwenTTSPanel when a Qwen voice is selected */}
+                    {isQwenVoice && (
+                      <>
+                        <div className="bg-border my-2 h-px" />
+                        <QwenTTSPanel />
+                      </>
+                    )}
 
-                    <div className="bg-border my-2 h-px" />
+                    {/* Only show prompt input for non-training modes */}
+                    {!(isQwenVoice && qwenMode === 'train') && (
+                      <div className="space-y-2">
+                        <label className="px-1 text-xs font-medium">
+                          {isQwenVoice && qwenMode === 'design' ? 'Text to Speak' : 'Prompt'}
+                        </label>
+                        <Textarea
+                          placeholder={
+                            mode === 'music'
+                              ? 'Lo-fi hip hop beat...'
+                              : isQwenVoice
+                                ? 'Enter the text you want to convert to speech...'
+                                : 'Enter text to speak...'
+                          }
+                          className="bg-background/50 min-h-[100px] resize-none text-sm"
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                        />
+                      </div>
+                    )}
 
-                    <AudioControls />
+                    {!isQwenVoice && (
+                      <>
+                        <div className="bg-border my-2 h-px" />
+                        <AudioControls />
+
+                        {/* ElevenLabs Voice Tuning */}
+                        {selectedVoice?.name.includes('ElevenLabs') && (
+                          <>
+                            <div className="bg-border my-2 h-px" />
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2">
+                                <Settings2 size={14} className="text-primary" />
+                                <span className="text-xs font-semibold">Voice Tuning</span>
+                              </div>
+
+                              {/* Stability */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-xs">Stability</Label>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info
+                                          size={12}
+                                          className="text-muted-foreground cursor-help"
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="max-w-xs text-xs">
+                                        Higher values = more consistent, lower = more expressive
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Slider
+                                    value={[stability]}
+                                    min={0}
+                                    max={1}
+                                    step={0.05}
+                                    onValueChange={([v]) => setParams({ stability: v })}
+                                    className="flex-1"
+                                  />
+                                  <span className="text-muted-foreground w-10 text-right text-xs tabular-nums">
+                                    {stability.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Similarity Boost */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-xs">Similarity Boost</Label>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info
+                                          size={12}
+                                          className="text-muted-foreground cursor-help"
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="max-w-xs text-xs">
+                                        How closely to match the original voice
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Slider
+                                    value={[similarity]}
+                                    min={0}
+                                    max={1}
+                                    step={0.05}
+                                    onValueChange={([v]) => setParams({ similarity: v })}
+                                    className="flex-1"
+                                  />
+                                  <span className="text-muted-foreground w-10 text-right text-xs tabular-nums">
+                                    {similarity.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Style */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-xs">Style</Label>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info
+                                          size={12}
+                                          className="text-muted-foreground cursor-help"
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="max-w-xs text-xs">
+                                        Style exaggeration (v3 feature)
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Slider
+                                    value={[voiceStyle]}
+                                    min={0}
+                                    max={1}
+                                    step={0.05}
+                                    onValueChange={([v]) => setParams({ voiceStyle: v })}
+                                    className="flex-1"
+                                  />
+                                  <span className="text-muted-foreground w-10 text-right text-xs tabular-nums">
+                                    {voiceStyle.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Speaker Boost */}
+                              <div className="flex items-center justify-between py-1">
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-xs">Speaker Boost</Label>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info
+                                          size={12}
+                                          className="text-muted-foreground cursor-help"
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="max-w-xs text-xs">
+                                        Enhance speaker clarity
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                                <Switch
+                                  checked={useSpeakerBoost}
+                                  onCheckedChange={(v) => setParams({ useSpeakerBoost: v })}
+                                />
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
                 </ScrollArea>
 
                 <div className="border-border bg-background/50 border-t p-4">
                   <Button
-                    className="shadow-primary/20 h-10 w-full gap-2 border-0 bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg hover:from-blue-500 hover:to-purple-500"
+                    className={cn(
+                      'h-10 w-full gap-2 border-0 shadow-lg',
+                      isQwenVoice
+                        ? qwenMode === 'train'
+                          ? 'bg-gradient-to-r from-amber-600 to-orange-600 shadow-amber-500/20 hover:from-amber-500 hover:to-orange-500'
+                          : 'bg-gradient-to-r from-purple-600 to-pink-600 shadow-purple-500/20 hover:from-purple-500 hover:to-pink-500'
+                        : 'shadow-primary/20 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500',
+                    )}
                     onClick={handleGenerate}
                     disabled={isGenerating}
                   >
-                    {isGenerating ? (
-                      <>Running...</>
-                    ) : (
-                      <>
-                        <Mic size={16} />
-                        Generate Audio
-                      </>
-                    )}
+                    {getButtonIcon()}
+                    {getButtonText()}
                   </Button>
                 </div>
               </div>

@@ -1,40 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGenerationByJobId, updateGenerationResult } from '@/lib/db/server';
-import crypto from 'crypto';
+import { validateReplicateWebhook } from '@/lib/webhooks/validation';
+import { safeJsonParse, validateUUID } from '@/lib/validation/input-validation';
 
-/**
- * Validate Replicate webhook signature
- */
-function validateSignature(req: NextRequest, body: string): boolean {
-  const signature = req.headers.get('x-replicate-signature');
-  const secret = process.env.REPLICATE_WEBHOOK_SECRET;
-
-  if (process.env.NODE_ENV === 'development' && !signature) {
-    return true;
-  }
-
-  if (!signature || !secret) {
-    return false;
-  }
-
-  try {
-    const hmac = crypto.createHmac('sha256', secret);
-    hmac.update(body);
-    const expected = hmac.digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-  } catch (e) {
-    return false;
-  }
-}
+// Custom validation logic replaced by validateReplicateWebhook helper
 
 export async function POST(req: NextRequest) {
-  const bodyText = await req.text();
-  const body = JSON.parse(bodyText);
+  const {
+    data: body,
+    error: parseError,
+    statusCode,
+  } = await safeJsonParse<{
+    id: string;
+    status: string;
+    output?: any;
+    error?: string;
+  }>(req);
+
+  if (parseError || !body) {
+    return NextResponse.json(
+      { error: parseError || 'Invalid request body' },
+      { status: statusCode || 400 },
+    );
+  }
 
   // Replicate webhook payload structure: { id, status, output, error, ... }
   const { id: jobId, status, output, error } = body;
 
-  if (!validateSignature(req, bodyText)) {
+  if (!jobId || !validateUUID(jobId)) {
+    return NextResponse.json({ error: 'Invalid or missing jobId' }, { status: 400 });
+  }
+
+  // Validate signature (Svix-standard HMAC-SHA256)
+  const isValid = await validateReplicateWebhook(
+    req,
+    process.env.REPLICATE_WEBHOOK_SIGNING_SECRET || process.env.REPLICATE_WEBHOOK_SECRET,
+  );
+
+  if (!isValid) {
+    console.error(`[Replicate Webhook] Signature validation failed for job ${jobId}`);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 

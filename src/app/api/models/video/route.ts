@@ -1,10 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuthAndRateLimit, RATE_LIMITS } from '@/lib/middleware/auth';
 
 /**
  * GET /api/models/video
  * Returns latest video generation models
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Auth and rate limiting check (using chat limits for metadata)
+  const authResult = await requireAuthAndRateLimit(req, '/api/models/video', RATE_LIMITS.chat);
+  if (!authResult.authenticated) {
+    return authResult.response;
+  }
+
   try {
     const models = [
       {

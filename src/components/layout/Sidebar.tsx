@@ -10,6 +10,9 @@ import {
   Mic,
   Dna,
   ScanEye,
+  Brain,
+  Combine,
+  Music,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -25,7 +28,10 @@ export type ViewMode =
   | 'chat'
   | 'workflow'
   | 'icon-studio'
-  | 'analysis';
+  | 'analysis'
+  | 'training'
+  | 'music'
+  | 'remix';
 
 interface SidebarProps {
   currentView: ViewMode;
@@ -42,6 +48,9 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'icon-studio', icon: Dna, label: 'Icon System' },
     { id: 'chat', icon: MessageSquare, label: 'Orchestrator' },
     { id: 'workflow', icon: Workflow, label: 'Workflows' },
+    { id: 'training', icon: Brain, label: 'Training' },
+    { id: 'music', icon: Music, label: 'Music Studio' },
+    { id: 'remix', icon: Combine, label: 'Remix Engine' },
   ] as const;
 
   return (

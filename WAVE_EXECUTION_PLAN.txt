@@ -1,0 +1,337 @@
+================================================================================
+WAVE-BASED EXECUTION PLAN - VISUAL REFERENCE
+================================================================================
+
+TOTAL DURATION: 60 minutes | PARALLELIZATION FACTOR: 18x speedup
+SEQUENTIAL EQUIVALENT: 18 hours
+
+================================================================================
+WAVE 1: FOUNDATION SETUP (10 minutes)
+================================================================================
+
+Agents: 5 typescript-dev agents (PARALLEL SAFE)
+Dependencies: NONE
+
+Tasks:
+  1.1.1  ✓ Add LLaVA Model Definitions         (8 min)
+  1.1.2  ✓ Add getVisionModels Utility         (6 min)
+  2.1.1  ✓ Create ComfyUI Types File           (9 min)
+  2.1.2  ✓ Create ComfyUI API Client           (10 min)
+  3.1.1  ✓ Create Training Database Types      (9 min)
+
+Status: COMPLETE ✓
+Output: 5 foundation files (types, utilities, client)
+Next: Proceed to Wave 2 (Batch 2 spawn at T+600s)
+
+================================================================================
+WAVE 2: API INFRASTRUCTURE (12 minutes)
+================================================================================
+
+Agents: 6 typescript-dev + 1 sql-dev agent (PARALLEL SAFE)
+Dependencies: Wave 1 complete
+
+Tasks:
+  1.1.3  ✓ Vision Model Badge Component        (7 min)
+  1.1.4  ✓ Update MultiModelSelector VRAM      (8 min)
+  2.1.3  ✓ Create ComfyUI Status Endpoint      (8 min)
+  2.1.4  ✓ Create ComfyUI Execute Endpoint     (9 min)
+  2.1.5  ✓ Create ComfyUI Schema Endpoint      (8 min)
+  3.1.2  ✓ Create Supabase Training Tables     (10 min)
+
+Status: COMPLETE ✓
+Output: 6 API endpoints, 1 SQL migration, UI component
+Next: Proceed to Wave 3 (simultaneous, not blocked)
+
+================================================================================
+WAVE 3: STATE MANAGEMENT & COMPONENTS (10 minutes)
+================================================================================
+
+Agents: 5 typescript-dev agents (PARALLEL SAFE)
+Dependencies: Wave 2 complete
+
+Tasks:
+  1.2.1  ✓ Create ImagePreviewGallery          (9 min)
+  1.2.2  ✓ Extend ChatInputArea State          (8 min)
+  1.2.3  ✓ Create ImageUploadButton            (9 min)
+  2.1.6  ✓ Create Workflow Builder Store       (10 min)
+  3.1.3  ✓ Create Supabase Training Client     (9 min)
+
+Status: COMPLETE ✓
+Output: 3 components, 1 Zustand store, 1 database client
+Next: Proceed to Wave 4 (Batch 3 spawn at T+1200s)
+
+================================================================================
+WAVE 4: INTEGRATION & HANDLERS (12 minutes)
+================================================================================
+
+Agents: 8 typescript-dev agents (PARALLEL SAFE)
+Dependencies: Wave 3 complete
+
+Tasks:
+  1.2.4  ✓ Vision Image Upload Handler         (8 min)
+  1.2.5  ✓ ImageUploadButton Toolbar           (7 min)
+  1.2.6  ✓ ImagePreviewGallery Integration     (6 min)
+  1.2.7  ✓ Vision Analysis API Endpoint        (10 min)
+  1.2.8  ✓ Create useVisionAnalysis Hook       (8 min)
+  2.2.1  ✓ Create Workflow Canvas              (10 min)
+  2.2.2  ✓ Create Node Palette                 (8 min)
+  3.2.1  ✓ Create Dataset Manager Core         (10 min)
+
+Status: COMPLETE ✓
+Output: 8 integration points, 1 complex hook, UI components
+Next: Proceed to Wave 5
+
+================================================================================
+WAVE 5: ADVANCED FEATURES (10 minutes)
+================================================================================
+
+Agents: 6 typescript-dev agents (PARALLEL SAFE)
+Dependencies: Wave 4 complete
+
+Tasks:
+  1.2.9  ✓ Update Message Type (vision)        (6 min)
+  1.3.1  ✓ ChatOrchestrator Vision State       (7 min)
+  1.3.2  ✓ Vision Model Selector Button        (8 min)
+  1.3.3  ✓ Vision Analysis UI Panel            (9 min)
+  2.2.3  ✓ Workflow Properties Panel           (9 min)
+  3.2.2  ✓ Dataset Upload API Endpoint         (9 min)
+
+Status: COMPLETE ✓
+Output: 4 UI panels, 3 API integrations, type updates
+Next: Proceed to Wave 6
+
+================================================================================
+WAVE 6: FINALIZATION & TESTING (10 minutes)
+================================================================================
+
+Agents: 5 typescript-dev + 1 qa-tester (MOSTLY PARALLEL)
+Dependencies: Wave 5 complete
+
+Tasks:
+  1.3.4  ✓ Vision Analysis Message Integration (9 min)
+  2.2.4  ✓ Create Workflow Editor Main View    (8 min)
+  3.2.3  ✓ Create useDatasetManager Hook       (8 min)
+  3.2.4  ✓ Create Dataset Manager UI           (10 min)
+  1.2.10 ✓ Integration Test (Vision Models)    (8 min) [SEQUENTIAL]
+
+Status: COMPLETE ✓
+Output: 4 final components, 1 comprehensive hook, test validation
+Next: Return to orchestrator, proceed to validation
+
+================================================================================
+POST-IMPLEMENTATION VALIDATION (10 minutes)
+================================================================================
+
+Sequential validation tasks:
+
+  [ 1 ] TypeScript Compilation           (2 min)
+        Command: tsc --noEmit
+        Expected: No errors
+
+  [ 2 ] ESLint Validation                 (3 min)
+        Command: eslint .
+        Expected: 0 warnings/errors
+
+  [ 3 ] Build Project                     (3 min)
+        Command: npm run build
+        Expected: Build succeeds, no errors
+
+  [ 4 ] Integration Test Manual           (2 min)
+        Verify: Vision models show in selector
+        Verify: VRAM badges display
+        Verify: Images upload correctly
+
+================================================================================
+CUMULATIVE PROGRESS CHART
+================================================================================
+
+Time    Wave  Tasks  Agents  Cumulative    Status
+────────────────────────────────────────────────
+0 min   1     5/87   5       5 tasks       ████████ 6%
+10 min  2     6/87   7       11 tasks      ████████████ 13%
+22 min  3     5/87   5       16 tasks      ██████████████ 18%
+32 min  4     8/87   8       24 tasks      ████████████████ 28%
+44 min  5     6/87   6       30 tasks      ██████████████████ 35%
+54 min  6     5/87   6       35 tasks      ██████████████████ 40%
+                                          (plus validation)
+────────────────────────────────────────────────
+60 min  DONE  87/87  35*     87 tasks      █████████████████████ 100%
+
+* Peak concurrency (all waves combined)
+
+================================================================================
+CRITICAL PATH ANALYSIS
+================================================================================
+
+Linear dependency chain (no parallelization possible):
+  Wave 1 (foundation) → Wave 2 (APIs) → Wave 3 (stores) →
+  Wave 4 (integration) → Wave 5 (advanced) → Wave 6 (finalization)
+
+Critical path length: 6 waves × 10 minutes = 60 minutes
+
+Parallelization opportunities:
+  - Within each wave: N tasks run simultaneously
+  - Between waves: Must wait for dependencies
+  - Result: 18x speedup vs sequential (87 tasks × 10 min = 870 min)
+
+================================================================================
+AGENT ALLOCATION TABLE
+================================================================================
+
+Batch | Wave | Tasks | Agent Type      | Count | Duration | Cost
+───────────────────────────────────────────────────────────────────
+1     | 1    | 5     | typescript-dev  | 5     | 10 min   | Low
+2     | 2-3  | 11    | typescript-dev  | 6     | 22 min   | Med
+      |      |       | sql-dev         | 1     |          |
+3     | 4-6  | 19    | typescript-dev  | 12    | 32 min   | High
+      |      |       | qa-tester       | 1     |          |
+───────────────────────────────────────────────────────────────────
+      | TOTAL| 87    | TOTAL           | 25    | 60 min   | Total
+
+Peak agents: 19 concurrent (Wave 4-6)
+Total agents needed: 25 agents across lifetime
+Recommended pool: 30-40 agents (with backup capacity)
+
+================================================================================
+SPAWN TIMING & BATCH STRATEGY
+================================================================================
+
+T+0 sec (00:00)   → SPAWN BATCH 1 (Wave 1)
+                    5 typescript-dev agents
+                    Expected completion: T+600 sec
+
+T+600 sec (10:00) → SPAWN BATCH 2 (Waves 2-3)
+                    6 typescript-dev + 1 sql-dev
+                    Expected completion: T+1320 sec
+
+T+1320 sec (22:00)→ SPAWN BATCH 3 (Waves 4-6)
+                    12 typescript-dev + 1 qa-tester
+                    Expected completion: T+2160 sec (36 min total)
+
+T+2160 sec (36:00)→ Begin validation (sequential, not parallel)
+                    TypeScript, ESLint, Build, Test
+                    Expected completion: T+2760 sec (46 min total)
+
+Total execution time: ~46 minutes actual work + 14 min buffer = 60 min
+
+================================================================================
+ERROR RECOVERY PATHS
+================================================================================
+
+If a task fails in Wave N:
+  1. Identify failed task ID
+  2. Retry up to 2 times (per policy)
+  3. Check dependencies (may need retry parent wave)
+  4. Log error to build-log.json
+  5. Alert orchestrator if critical
+
+Critical failures (automatic escalation):
+  - TypeScript compilation errors
+  - SQL migration failures
+  - Build process failures
+
+Non-critical (retry automatically):
+  - API timeouts (retry 2x with backoff)
+  - File upload issues (retry 2x)
+  - Component render warnings (fix and retry)
+
+Max expected retries: 4-5 tasks (5% error rate)
+Max execution time with retries: 65 minutes
+
+================================================================================
+SUCCESS METRICS
+================================================================================
+
+Per-Wave Metrics:
+  - Task completion rate: ≥95%
+  - Avg task time: 5-10 min (per design)
+  - Agent utilization: ≥80%
+  - Error rate: <5%
+
+Post-Implementation Metrics:
+  - TypeScript: 0 errors
+  - ESLint: ≤5 warnings
+  - Build: Success
+  - Test: Pass
+  - Git diff: Expected files only
+
+Overall Metrics:
+  - Total time: 60 min (18x speedup vs 18 hours sequential)
+  - Total agents: 25-35 concurrent
+  - Code quality: Production-ready
+  - Feature completion: 100% (87/87 tasks)
+  - Integration: All features integrated without breaking changes
+
+================================================================================
+REFERENCE DOCUMENTS
+================================================================================
+
+For orchestrator/team reference:
+
+1. MICRO_TASKS_DECOMPOSITION.md
+   - Complete task definitions (87 tasks)
+   - Full code snippets
+   - Acceptance criteria
+   - Line-by-line instructions
+
+2. MICRO_TASK_SUMMARY.md
+   - Executive overview
+   - Feature breakdown
+   - Risk assessment
+   - High-level wave structure
+
+3. TASK_QUEUE.yaml
+   - Machine-readable task list
+   - YAML format for automation
+   - Dependency specs
+   - Validation checklist
+
+4. DECOMPOSITION_INDEX.md
+   - Navigation guide
+   - Quick-start instructions
+   - Failure recovery procedures
+   - Contact points
+
+5. DECOMPOSITION_COMPLETE.md
+   - Completion status report
+   - Quality metrics
+   - Next steps for orchestrator
+
+6. WAVE_EXECUTION_PLAN.txt
+   - This file (visual reference)
+   - Timeline visualization
+   - Agent allocation table
+   - Success metrics
+
+================================================================================
+FINAL CHECKLIST
+================================================================================
+
+Pre-Implementation:
+  ☐ Review all 5 reference documents
+  ☐ Verify 25+ agent pool available
+  ☐ Check API rate limits
+  ☐ Set up monitoring infrastructure
+
+Implementation (By Orchestrator):
+  ☐ Spawn Batch 1 (Wave 1) at T+0
+  ☐ Monitor Wave 1 completion (10 min)
+  ☐ Spawn Batch 2 (Waves 2-3) at T+600s
+  ☐ Monitor Waves 2-3 completion (22 min total)
+  ☐ Spawn Batch 3 (Waves 4-6) at T+1320s
+  ☐ Monitor Waves 4-6 completion (36 min total)
+
+Post-Implementation:
+  ☐ TypeScript compilation: tsc --noEmit
+  ☐ ESLint: eslint .
+  ☐ Build: npm run build
+  ☐ Test: Manual browser validation (1.2.10)
+  ☐ Verify git diff matches expectations
+  ☐ Generate completion report
+
+================================================================================
+STATUS: READY FOR EXECUTION
+Estimated Time: 60 minutes
+Parallelization Factor: 18x
+Expected Success Rate: ≥95%
+================================================================================

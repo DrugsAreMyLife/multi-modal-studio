@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat as aiUseChat } from '@ai-sdk/react';
+import { getCsrfToken } from 'next-auth/react';
 import { SUPPORTED_MODELS, getModelById } from '@/lib/models/supported-models';
 import { useMemo } from 'react';
 
@@ -31,12 +32,17 @@ export function useChatWithModel(options: UseChatWithModelOptions = {}) {
   const enhancedSendMessage = useMemo(
     () => async (input: any) => {
       // Inject model parameters into the request
+      // Inject CSRF token
+      const csrfToken = await getCsrfToken();
+
       const payload =
         typeof input === 'string'
           ? { text: input, modelId, providerId }
           : { ...input, modelId, providerId };
 
-      return originalSendMessage(payload);
+      return originalSendMessage(payload, {
+        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+      });
     },
     [originalSendMessage, modelId, providerId],
   );

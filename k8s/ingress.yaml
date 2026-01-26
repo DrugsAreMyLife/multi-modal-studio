@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mmgs-ingress
+  namespace: mmgs
+  annotations:
+    # Use nginx ingress controller
+    kubernetes.io/ingress.class: nginx
+    # TLS via cert-manager with letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Increase body size for file uploads (audio, images, video)
+    nginx.ingress.kubernetes.io/proxy-body-size: "500m"
+    # WebSocket support for real-time features
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Enable sticky sessions for streaming
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "mmgs-affinity"
+spec:
+  tls:
+    - hosts:
+        - studio.drnickdavis.com
+      secretName: mmgs-tls
+  rules:
+    - host: studio.drnickdavis.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mmgs-web
+                port:
+                  number: 80

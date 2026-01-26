@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mmgs-web
+  namespace: mmgs
+  labels:
+    app: mmgs
+    component: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mmgs
+      component: web
+  template:
+    metadata:
+      labels:
+        app: mmgs
+        component: web
+    spec:
+      containers:
+        - name: nextjs
+          image: ghcr.io/drugsaremylife/mmgs:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: mmgs-config
+            - secretRef:
+                name: mmgs-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+      imagePullSecrets:
+        - name: ghcr-secret
+
+---
+# GPU Worker Deployment - Runs on nodes with NVIDIA GPUs
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mmgs-workers
+  namespace: mmgs
+  labels:
+    app: mmgs
+    component: workers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mmgs
+      component: workers
+  template:
+    metadata:
+      labels:
+        app: mmgs
+        component: workers
+    spec:
+      # Schedule on GPU nodes only
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: workers
+          image: ghcr.io/drugsaremylife/mmgs-workers:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+              name: heart
+            - containerPort: 8002
+              name: audio-proc
+            - containerPort: 8003
+              name: qwen-tts
+            - containerPort: 8188
+              name: comfyui
+          env:
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility"
+          resources:
+            requests:
+              memory: "8Gi"
+              cpu: "2000m"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "32Gi"
+              cpu: "8000m"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /root/.cache/huggingface
+            - name: comfyui-models
+              mountPath: /app/ComfyUI/models
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: mmgs-model-cache
+        - name: comfyui-models
+          persistentVolumeClaim:
+            claimName: mmgs-comfyui-models
+      imagePullSecrets:
+        - name: ghcr-secret

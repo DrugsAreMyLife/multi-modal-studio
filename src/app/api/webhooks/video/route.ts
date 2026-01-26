@@ -1,31 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGenerationByJobId, updateGenerationResult, updateVideoJob } from '@/lib/db/server';
 
+import { validateHmacSignature } from '@/lib/webhooks/validation';
+import { safeJsonParse, validateUUID } from '@/lib/validation/input-validation';
+
 /**
  * Validate webhook signature from provider
- * Implements HMAC-SHA256 signature validation for each provider
  */
 function validateWebhookSignature(req: NextRequest, body: string, provider?: string): boolean {
   const signature =
     req.headers.get('x-webhook-signature') ||
     req.headers.get('x-runway-signature') ||
+    req.headers.get('x-luma-signature') ||
     req.headers.get('x-replicate-signature');
 
-  // In development, allow unsigned webhooks
-  if (process.env.NODE_ENV === 'development' && !signature) {
-    console.warn('[Webhook] No signature in development mode - allowing');
-    return true;
-  }
+  if (!signature) return false;
 
-  // In production, require signature
-  if (!signature) {
-    console.error('[Webhook] Missing signature in production');
-    return false;
-  }
+  if (!signature) return false;
 
   let secret: string | undefined;
-
-  // Get the appropriate secret based on provider
   switch (provider) {
     case 'runway':
       secret = process.env.RUNWAY_WEBHOOK_SECRET;
@@ -37,45 +30,41 @@ function validateWebhookSignature(req: NextRequest, body: string, provider?: str
       secret = process.env.REPLICATE_WEBHOOK_SECRET;
       break;
     default:
-      console.warn('[Webhook] Unknown provider, using generic secret');
       secret = process.env.WEBHOOK_SECRET;
   }
 
-  if (!secret) {
-    console.warn(`[Webhook] No webhook secret configured for ${provider}`);
-    return process.env.NODE_ENV === 'development'; // Allow in dev, block in prod
-  }
-
-  try {
-    // Create HMAC-SHA256 signature
-    const crypto = require('crypto');
-    const hmac = crypto.createHmac('sha256', secret);
-    hmac.update(body);
-    const expectedSignature = hmac.digest('hex');
-
-    // Compare signatures (timing-safe)
-    const isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
-
-    if (!isValid) {
-      console.error('[Webhook] Invalid signature', { provider });
-    }
-
-    return isValid;
-  } catch (error) {
-    console.error('[Webhook] Signature validation error:', error);
-    return false;
-  }
+  return validateHmacSignature(body, signature, secret);
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const bodyText = await req.text();
-    const body = JSON.parse(bodyText);
+    const {
+      data: body,
+      error: parseError,
+      statusCode,
+    } = await safeJsonParse<{
+      jobId: string;
+      status: string;
+      result_url?: string;
+      error?: string;
+      provider?: string;
+    }>(req);
+
+    if (parseError || !body) {
+      return NextResponse.json(
+        { error: parseError || 'Invalid request body' },
+        { status: statusCode || 400 },
+      );
+    }
+
     const { jobId, status, result_url, error, provider } = body;
 
-    if (!jobId) {
-      return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
+    if (!jobId || !validateUUID(jobId)) {
+      return NextResponse.json({ error: 'Invalid or missing jobId' }, { status: 400 });
     }
+
+    // Reload body text for signature validation (shared with body stream consumption)
+    const bodyText = JSON.stringify(body);
 
     // Validate webhook signature based on provider
     if (!validateWebhookSignature(req, bodyText, provider)) {

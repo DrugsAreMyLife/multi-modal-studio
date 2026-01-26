@@ -8,7 +8,9 @@ import { VideoModelSelector } from './VideoModelSelector';
 import { WebcamSection } from './WebcamSection';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Video, Clapperboard, Camera, Loader2, AlertCircle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Video, Clapperboard, Camera, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 import { useVideoStudioStore } from '@/lib/store/video-studio-store';
 import { useIntegrationStore } from '@/lib/integrations/store';
 import { useNotificationStore } from '@/lib/store/notification-store';
@@ -17,11 +19,29 @@ import { Hash, Check, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { GenerationSkeleton } from '@/components/ui/generation-skeleton';
+import {
+  DynamicParameterControls,
+  ModelCapabilitiesBadges,
+} from '@/components/shared/DynamicParameterControls';
+import { getGenerationModelById } from '@/lib/models/generation-models';
+
+import { VideoPlayer } from './VideoPlayer';
 
 export function VideoStudio() {
-  const { selectedModelId, startFrame, duration, camera, tunes } = useVideoStudioStore();
+  const {
+    selectedModelId,
+    startFrame,
+    duration,
+    camera,
+    tunes,
+    prompt,
+    setPrompt,
+    modelParams,
+    setModelParam,
+  } = useVideoStudioStore();
   const { getApiHeaders } = useIntegrationStore();
   const { addNotification } = useNotificationStore();
+  const currentModel = getGenerationModelById(selectedModelId);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -33,14 +53,32 @@ export function VideoStudio() {
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
 
   const handleRender = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please enter a prompt to generate video');
+      return;
+    }
+
     setIsGenerating(true);
     setStatus('Initializing...');
 
     try {
-      let provider: 'runway' | 'luma' | 'replicate' = 'runway';
+      let provider:
+        | 'runway'
+        | 'luma'
+        | 'replicate'
+        | 'openai'
+        | 'google'
+        | 'kling'
+        | 'pika'
+        | 'haiper' = 'runway';
       if (selectedModelId.includes('luma')) provider = 'luma';
       if (selectedModelId.includes('replicate') || selectedModelId.includes('minimax'))
         provider = 'replicate';
+      if (selectedModelId.includes('sora')) provider = 'openai';
+      if (selectedModelId.includes('veo')) provider = 'google';
+      if (selectedModelId.includes('kling')) provider = 'kling';
+      if (selectedModelId.includes('pika')) provider = 'pika';
+      if (selectedModelId.includes('haiper')) provider = 'haiper';
 
       const response = await fetch('/api/generate/video', {
         method: 'POST',
@@ -49,11 +87,14 @@ export function VideoStudio() {
           ...getApiHeaders(),
         },
         body: JSON.stringify({
-          prompt: 'Advanced cinematic shot', // Fallback if no prompt found in store
+          prompt,
           provider,
+          model: selectedModelId,
           imageUrl: startFrame || undefined,
           duration,
-          // camera and tunes would be passed here if supported by the provider adapter
+          ...modelParams,
+          camera,
+          tunes,
         }),
       });
 
@@ -182,25 +223,72 @@ export function VideoStudio() {
       <div className="flex h-full w-full flex-col">
         {/* Main Preview Area */}
         <div className="relative flex w-full flex-1">
-          <div className="flex flex-1 items-center justify-center bg-black/50">
-            {isGenerating ? (
-              <div className="w-[80%] max-w-3xl">
-                <GenerationSkeleton type="video" />
-              </div>
-            ) : (
-              <div className="relative flex aspect-video w-[80%] max-w-3xl items-center justify-center rounded-lg border border-white/10 bg-black shadow-2xl">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <Video size={24} />
-                  {status ? `Status: ${status}` : 'Preview Player'}
-                </span>
-              </div>
-            )}
+          <div className="flex flex-1 items-center justify-center overflow-hidden bg-black/50">
+            <div className="w-full max-w-4xl px-8">
+              <VideoPlayer
+                url={videoUrl}
+                status={status}
+                isGenerating={isGenerating}
+                className="shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+              />
+            </div>
           </div>
 
           {/* Right Inspector */}
           <div className="border-border bg-background/60 z-20 flex h-full w-80 flex-col border-l backdrop-blur-xl">
             <ScrollArea className="flex-1">
-              <div className="space-y-8 p-4">
+              <div className="space-y-6 p-4">
+                {/* Prompt Input - CRITICAL: Was missing! */}
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={14} className="text-primary" />
+                    <Label className="text-xs font-semibold">Prompt</Label>
+                  </div>
+                  <Textarea
+                    placeholder="Describe the video you want to generate..."
+                    className="bg-background/50 focus-visible:ring-primary/30 min-h-[100px] resize-none border-white/5 text-sm"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                  />
+                </motion.div>
+
+                <div className="bg-border h-px" />
+
+                <VideoModelSelector />
+
+                {/* Model Capabilities */}
+                {currentModel && (
+                  <div className="space-y-2">
+                    <span className="text-muted-foreground text-xs">Capabilities</span>
+                    <ModelCapabilitiesBadges modelId={selectedModelId} />
+                  </div>
+                )}
+
+                {/* Dynamic Parameters based on selected model */}
+                {currentModel && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold">Model Settings</span>
+                    </div>
+                    <DynamicParameterControls
+                      modelId={selectedModelId}
+                      values={modelParams}
+                      onChange={setModelParam}
+                      excludeParams={['prompt']}
+                    />
+                  </motion.div>
+                )}
+
+                <div className="bg-border h-px" />
+
                 <WebcamSection />
 
                 <div className="bg-border h-px" />
@@ -210,7 +298,6 @@ export function VideoStudio() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 }}
                 >
-                  <VideoModelSelector />
                   <div className="mb-4 flex items-center gap-2">
                     <Clapperboard size={16} className="text-primary" />
                     <span className="text-sm font-semibold">Shot Settings</span>
@@ -272,7 +359,7 @@ export function VideoStudio() {
               <Button
                 className="shadow-primary/20 h-10 w-full gap-2 shadow-lg"
                 onClick={handleRender}
-                disabled={isGenerating}
+                disabled={isGenerating || !prompt.trim()}
               >
                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video size={16} />}
                 {isGenerating ? 'Rendering...' : 'Render Clip'}

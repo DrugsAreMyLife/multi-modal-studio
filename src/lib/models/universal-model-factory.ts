@@ -82,7 +82,7 @@ export function createUniversalModel(providerId: string, modelId: string): Langu
 
     default:
       // Fallback to OpenAI if unknown
-      console.warn(`Unknown provider ${providerId}, falling back to OpenAI GPT-4o`);
-      return createOpenAI({ apiKey: process.env.OPENAI_API_KEY })('gpt-4o');
+      console.warn(`Unknown provider ${providerId}, falling back to OpenAI GPT-5`);
+      return createOpenAI({ apiKey: process.env.OPENAI_API_KEY })('gpt-5');
   }
 }

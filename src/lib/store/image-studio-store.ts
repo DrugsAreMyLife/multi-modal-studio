@@ -179,7 +179,7 @@ export const AVAILABLE_MODELS = [
     },
   },
   {
-    id: 'qwen-image-2512',
+    id: 'qwen-image',
     name: 'Qwen-Image-2512',
     provider: 'cloud',
     capabilities: {
@@ -192,7 +192,7 @@ export const AVAILABLE_MODELS = [
     },
   },
   {
-    id: 'hunyuan-image-3.0',
+    id: 'hunyuan-image',
     name: 'Hunyuan Image 3.0 (80B)',
     provider: 'cloud',
     capabilities: {
@@ -231,7 +231,7 @@ export const AVAILABLE_MODELS = [
     },
   },
   {
-    id: 'midjourney-v7',
+    id: 'midjourney-7',
     name: 'Midjourney v7',
     provider: 'cloud',
     capabilities: {
@@ -270,7 +270,7 @@ export const AVAILABLE_MODELS = [
     },
   },
   {
-    id: 'ideogram-3.0',
+    id: 'ideogram-3',
     name: 'Ideogram 3.0 (Text Master)',
     provider: 'cloud',
     capabilities: {
@@ -291,6 +291,10 @@ interface ImageStudioStore extends ImageStudioState {
   setCanvasTransform: (transform: { x: number; y: number; scale: number }) => void;
   setActiveImage: (id: string | null) => void;
   updateModels: (models: GenerationModel[]) => void;
+  // Dynamic model parameters
+  modelParams: Record<string, any>;
+  setModelParam: (key: string, value: any) => void;
+  setModelParams: (params: Record<string, any>) => void;
 }
 
 export const useImageStudioStore = create<ImageStudioStore>()(
@@ -317,8 +321,14 @@ export const useImageStudioStore = create<ImageStudioStore>()(
       },
       activeImageId: null,
       canvasTransform: { x: 0, y: 0, scale: 1 },
+      modelParams: {},
 
       setModel: (modelId) => set({ selectedModelId: modelId }),
+      setModelParam: (key, value) =>
+        set((state) => ({
+          modelParams: { ...state.modelParams, [key]: value },
+        })),
+      setModelParams: (params) => set({ modelParams: params }),
 
       updateSettings: (newSettings) =>
         set((state) => ({

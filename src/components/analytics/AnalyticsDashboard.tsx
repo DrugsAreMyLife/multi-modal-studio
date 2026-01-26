@@ -33,6 +33,7 @@ export function AnalyticsDashboard() {
     getUsageByProvider,
     isOverDailyBudget,
     isOverMonthlyBudget,
+    getForecastedCost,
   } = useAnalyticsStore();
 
   const todayCost = getTodayCost();
@@ -97,12 +98,22 @@ export function AnalyticsDashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-              <TrendingUp className="h-4 w-4" /> Monthly Cost
+              <TrendingUp className="h-4 w-4" /> Monthly Flow
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${(monthCost / 100).toFixed(2)}</div>
-            <Progress value={(monthCost / monthlyBudgetCents) * 100} className="mt-2" />
+            <div className="text-muted-foreground mt-2 flex justify-between text-[10px] font-medium">
+              <span>Forecasted: ${(getForecastedCost() / 100).toFixed(2)}</span>
+              <span
+                className={
+                  getForecastedCost() > monthlyBudgetCents ? 'text-destructive' : 'text-emerald-500'
+                }
+              >
+                {getForecastedCost() > monthlyBudgetCents ? 'Over Budget' : 'On Track'}
+              </span>
+            </div>
+            <Progress value={(monthCost / monthlyBudgetCents) * 100} className="mt-1" />
             <p className="text-muted-foreground mt-1 text-xs">
               of ${(monthlyBudgetCents / 100).toFixed(2)} monthly budget
             </p>

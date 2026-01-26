@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mmgs-web
+  namespace: mmgs
+  labels:
+    app: mmgs
+    component: web
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: mmgs
+    component: web
+
+---
+# Internal service for GPU workers (not exposed externally)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mmgs-workers
+  namespace: mmgs
+  labels:
+    app: mmgs
+    component: workers
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8001
+      targetPort: 8001
+      protocol: TCP
+      name: heart
+    - port: 8002
+      targetPort: 8002
+      protocol: TCP
+      name: audio-proc
+    - port: 8003
+      targetPort: 8003
+      protocol: TCP
+      name: qwen-tts
+    - port: 8188
+      targetPort: 8188
+      protocol: TCP
+      name: comfyui
+  selector:
+    app: mmgs
+    component: workers

@@ -3,8 +3,29 @@ import { requireAuthAndRateLimit, RATE_LIMITS } from '@/lib/middleware/auth';
 import { validateWorkflow, sanitizeWorkflow } from '@/lib/comfyui/validator';
 import type { ComfyUIWorkflow } from '@/lib/comfyui/types';
 import type { ComfyUIWorkflow as ValidatorWorkflow } from '@/lib/comfyui/validator';
+import { generateWorkflowFromPrompt } from '@/lib/comfyui/workflow-generator';
+import {
+  processMessage,
+  initializeConversation,
+  generateFinalWorkflow,
+  QUESTION_TEMPLATES,
+  parseAnswer,
+  transitionState,
+} from '@/lib/comfyui/conversation-state-machine';
+import { selectBestTemplate } from '@/lib/comfyui/template-selector';
+import type {
+  ConversationMessage,
+  ConversationContext,
+  QuestionTemplate,
+} from '@/lib/comfyui/state-machine-types';
 
 export const maxDuration = 30;
+
+/**
+ * Validation constants for input limits
+ */
+const MAX_CONVERSATION_MESSAGES = 100;
+const MAX_MESSAGE_LENGTH = 5000;
 
 /**
  * Message type for conversation history
@@ -12,6 +33,7 @@ export const maxDuration = 30;
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  metadata?: Record<string, any>;
 }
 
 /**
@@ -110,6 +132,14 @@ function validateRequest(
       return { valid: false, error: 'Field conversation must be an array' };
     }
 
+    // Validate conversation size to prevent DoS attacks
+    if (req.conversation.length > MAX_CONVERSATION_MESSAGES) {
+      return {
+        valid: false,
+        error: `Conversation exceeds maximum of ${MAX_CONVERSATION_MESSAGES} messages (received ${req.conversation.length})`,
+      };
+    }
+
     conversation = req.conversation.map((msg: unknown, idx: number) => {
       if (typeof msg !== 'object' || msg === null) {
         throw new Error(`Conversation message at index ${idx} must be an object`);
@@ -131,9 +161,17 @@ function validateRequest(
         throw new Error(`Conversation message at index ${idx}: content must be a non-empty string`);
       }
 
+      // Validate message content length
+      if (m.content.length > MAX_MESSAGE_LENGTH) {
+        throw new Error(
+          `Conversation message at index ${idx}: content exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters (received ${m.content.length})`,
+        );
+      }
+
       return {
         role: m.role as 'user' | 'assistant' | 'system',
         content: m.content,
+        metadata: m.metadata as Record<string, any>,
       };
     });
   }
@@ -150,67 +188,18 @@ function validateRequest(
 
 /**
  * Generates a workflow from a prompt using autonomous mode
- * This is a stub implementation that will be connected to the LLM
+ * Uses LLM-based workflow generation with template selection
  */
 async function generateWorkflowAutonomous(prompt: string): Promise<AutonomousResponse> {
-  // TODO: Implement LLM-based workflow generation
-  // For now, return a placeholder response
-  // In production, this would:
-  // 1. Call an LLM (Claude, GPT-4, etc.)
-  // 2. Parse the LLM response into a workflow
-  // 3. Validate the workflow
-  // 4. Return confidence score and explanation
-
-  const placeholderWorkflow: ComfyUIWorkflow = {
-    '1': {
-      class_type: 'LoadCheckpoint',
-      inputs: {
-        ckpt_name: 'sd_xl_base_1.0.safetensors',
-      },
-    },
-    '2': {
-      class_type: 'CLIPTextEncode',
-      inputs: {
-        clip: ['1', 1],
-        text: prompt,
-      },
-    },
-    '3': {
-      class_type: 'CLIPTextEncode',
-      inputs: {
-        clip: ['1', 1],
-        text: 'low quality, blurry',
-      },
-    },
-    '4': {
-      class_type: 'KSampler',
-      inputs: {
-        model: ['1', 0],
-        positive: ['2', 0],
-        negative: ['3', 0],
-        latent_image: ['5', 0],
-        seed: 42,
-        steps: 20,
-        cfg: 7.0,
-        sampler_name: 'euler',
-        scheduler: 'normal',
-        denoise: 1.0,
-      },
-    },
-    '5': {
-      class_type: 'CheckpointLoaderSimple',
-      inputs: {
-        ckpt_name: 'sd_xl_base_1.0.safetensors',
-      },
-    },
-  };
+  // Call the real workflow generator
+  const result = await generateWorkflowFromPrompt(prompt, 'autonomous');
 
   return {
     success: true,
-    workflow: placeholderWorkflow,
-    confidence: 0.75,
-    explanation: 'Generated a text-to-image workflow based on your prompt using SDXL model',
-    template_used: 'text_to_image_v1',
+    workflow: result.workflow,
+    confidence: result.confidence,
+    explanation: result.explanation,
+    template_used: result.template_used || 'unknown',
   };
 }
 
@@ -222,40 +211,89 @@ async function generateWorkflowAssisted(
   prompt: string,
   conversation?: Message[],
 ): Promise<AssistedResponse> {
-  // TODO: Implement LLM-based assisted workflow generation
-  // For now, return a placeholder response
-  // In production, this would:
-  // 1. Analyze the conversation history
-  // 2. Determine what clarifying questions are needed
-  // 3. Build a partial workflow based on user input
-  // 4. Return progress and next question
+  // Convert conversation to the state machine format
+  let context: ConversationContext;
 
-  // Determine progress based on conversation length
-  const conversationLength = conversation?.length ?? 0;
-  const maxTurns = 5;
-  const progress = Math.min(100, (conversationLength / maxTurns) * 100);
+  if (!conversation || conversation.length === 0) {
+    // Initialize new conversation
+    context = initializeConversation();
+  } else {
+    // Reconstruct context from conversation history
+    context = initializeConversation();
+    context.messageHistory = conversation.map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+      timestamp: Date.now(),
+    }));
 
-  const state =
-    conversationLength === 0
-      ? 'initial'
-      : conversationLength < 4
-        ? 'gathering_details'
-        : 'finalizing';
+    // Replay history to rebuild state and parameters
+    for (let i = 0; i < conversation.length; i++) {
+      const msg = conversation[i];
+      if (msg.role === 'user') {
+        const assistantMsg = i > 0 ? conversation[i - 1] : null;
 
-  // Generate a contextual question
-  let question = 'What style or aesthetic would you like for the output?';
-  if (conversationLength > 0) {
-    question = 'What aspect ratio would you prefer for the final output?';
+        if (assistantMsg && assistantMsg.role === 'assistant') {
+          // 1. Try metadata matching (robust)
+          const questionId = assistantMsg.metadata?.questionId;
+          const question = QUESTION_TEMPLATES.find((q: QuestionTemplate) => q.id === questionId);
+
+          if (question) {
+            context = parseAnswer(context, msg.content, question);
+          } else {
+            // 2. Fallback to text matching (legacy/initial turn)
+            const textMatchedQuestion = QUESTION_TEMPLATES.find((q: QuestionTemplate) =>
+              assistantMsg.content.includes(q.question),
+            );
+
+            if (textMatchedQuestion) {
+              context = parseAnswer(context, msg.content, textMatchedQuestion);
+            } else if (context.currentState === 'initial') {
+              // It's the initial message, process it
+              const templateScores = selectBestTemplate(msg.content);
+              if (templateScores[0] && templateScores[0].score > 0.5) {
+                context.templateId = templateScores[0].templateId;
+                context.parameters.template_id = templateScores[0].templateId;
+                context.parameters.intent = msg.content;
+              }
+            }
+          }
+        } else if (i === 0) {
+          // Special case: very first message in conversation
+          const templateScores = selectBestTemplate(msg.content);
+          if (templateScores[0] && templateScores[0].score > 0.5) {
+            context.templateId = templateScores[0].templateId;
+            context.parameters.template_id = templateScores[0].templateId;
+            context.parameters.intent = msg.content;
+          }
+        }
+        // Advance state after each user message
+        context = transitionState(context);
+      }
+    }
   }
-  if (conversationLength > 2) {
-    question = 'Are there any specific details or elements you want to emphasize?';
+
+  // Process the user's message
+  const result = await processMessage(context, prompt);
+
+  // Check if workflow generation is complete
+  if (result.isComplete) {
+    const workflowResult = await generateFinalWorkflow(result.context);
+
+    return {
+      success: true,
+      question: result.assistantMessage,
+      partial_workflow: workflowResult.workflow,
+      progress: result.context.completionPercentage,
+      state: result.context.currentState,
+    };
   }
 
+  // Return next question
   return {
     success: true,
-    question,
-    progress,
-    state,
+    question: result.assistantMessage,
+    progress: result.context.completionPercentage,
+    state: result.context.currentState,
   };
 }
 

@@ -1,11 +1,13 @@
 'use client';
 
-import { Activity, Share2, Download, MessageSquare, BarChart3 } from 'lucide-react';
+import { Activity, Share2, Download, MessageSquare, BarChart3, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUIStore } from '@/lib/store/ui-store';
 import { NotificationCenter } from '@/components/ui/NotificationCenter';
+import { WorkerStatusIndicator } from '@/components/shared/WorkerStatusIndicator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
+import { useAnalyticsStore } from '@/lib/store/analytics-store';
 
 export function TopBar() {
   const { toggleGlobalChat, isGlobalChatOpen, isAnalyticsOpen, setAnalyticsOpen } = useUIStore();
@@ -19,13 +21,20 @@ export function TopBar() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Compute Meter Mockup */}
-          <div className="text-muted-foreground bg-muted/50 border-border flex items-center gap-2 rounded-full border px-2 py-1 text-xs">
-            <Activity size={12} className="text-green-500" />
-            <span>GPU: Ready</span>
+          {/* Compute Meter & Cost Indicator */}
+          <div className="flex items-center gap-1">
+            <div className="text-muted-foreground bg-muted/50 border-border flex items-center gap-2 rounded-l-full border px-3 py-1 text-[10px] font-medium tracking-wider uppercase">
+              <Activity size={10} className="text-green-500" />
+              <span>Status: Optimal</span>
+            </div>
+            <div className="bg-primary/10 border-primary/20 text-primary flex items-center gap-2 rounded-r-full border px-3 py-1 text-[10px] font-bold">
+              <DollarSign size={10} />
+              <span>${(useAnalyticsStore.getState().getMonthCost() / 100).toFixed(2)} / MO</span>
+            </div>
           </div>
 
           <NotificationCenter />
+          <WorkerStatusIndicator />
 
           <div className="bg-border mx-1 h-4 w-[1px]" />
 

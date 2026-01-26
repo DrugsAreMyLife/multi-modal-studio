@@ -197,9 +197,9 @@ export const useTrainingStore = create<TrainingStore>()(
 
         const doPoll = async (): Promise<void> => {
           try {
-            const { pollingIntervals } = get();
+            const { pollingIntervals, stopPolling } = get();
 
-            // Check if polling was stopped
+            // Check if polling was stopped externally or if this is a stale poll
             if (!pollingIntervals[jobId]) {
               return;
             }
@@ -254,6 +254,9 @@ export const useTrainingStore = create<TrainingStore>()(
             }
           }
         };
+
+        // Clear any existing interval for this job before starting a new one
+        get().stopPolling(jobId);
 
         // Fetch initial status
         try {

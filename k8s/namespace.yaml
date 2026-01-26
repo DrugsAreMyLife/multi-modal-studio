@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mmgs
+  labels:
+    app.kubernetes.io/name: multi-modal-generation-studio
+    app.kubernetes.io/managed-by: kubectl

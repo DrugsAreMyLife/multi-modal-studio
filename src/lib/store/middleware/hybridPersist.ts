@@ -49,10 +49,30 @@ export function hybridPersist<T extends object>(
   } = config;
 
   return (stateCreator) => (set, get, api) => {
+    // Debounced persistence to avoid blocking main thread on every state change
+    let persistenceTimeout: NodeJS.Timeout | null = null;
+    const PERSISTENCE_DELAY = 1000;
+
+    const persistToLocalStorage = (state: T) => {
+      if (typeof window === 'undefined') return;
+      if (persistenceTimeout) clearTimeout(persistenceTimeout);
+
+      persistenceTimeout = setTimeout(() => {
+        const toStore = {
+          state: partialize(state),
+          version,
+        };
+        try {
+          localStorage.setItem(localStorageKey, JSON.stringify(toStore));
+        } catch (e) {
+          console.error(`[HybridPersist] Failed to save ${name}:`, e);
+        }
+      }, PERSISTENCE_DELAY);
+    };
+
     // Wrap set to track changes
     const trackedSet: typeof set = (partial, replace?) => {
       const prevState = get();
-      // Use type assertion to handle Zustand's overloaded set signature
       (set as (partial: unknown, replace?: boolean) => void)(partial, replace);
       const nextState = get();
 
@@ -68,16 +88,8 @@ export function hybridPersist<T extends object>(
         timestamp: Date.now(),
       };
 
-      // Always save to localStorage immediately
-      if (typeof window !== 'undefined') {
-        const toStore = {
-          state: partialize(nextState),
-          version,
-        };
-        localStorage.setItem(localStorageKey, JSON.stringify(toStore));
-      }
-
-      // Add to sync queue for remote persistence
+      // Persistence
+      persistToLocalStorage(nextState);
       addToSyncQueue(queueItem);
     };
 

@@ -13,6 +13,7 @@ import { ComfyUIWorkflow } from './types';
 export interface ComfyUIQueueResponse {
   prompt_id: string;
   number: number;
+  node_errors?: Record<string, unknown>;
 }
 
 /**
@@ -54,11 +55,28 @@ export interface ComfyUIObjectInfo {
 }
 
 /**
+ * Image output from a node
+ */
+export interface ComfyUIImageOutput {
+  filename: string;
+  subfolder?: string;
+  type?: string;
+}
+
+/**
+ * Node output structure
+ */
+export interface ComfyUINodeOutput {
+  images?: ComfyUIImageOutput[];
+  [key: string]: unknown;
+}
+
+/**
  * Single execution entry from history
  */
 export interface ComfyUIExecutionEntry {
   prompt: ComfyUIWorkflow;
-  outputs: Record<string, unknown>;
+  outputs: Record<string, ComfyUINodeOutput>;
   status: {
     status_str: string;
     completed: boolean;

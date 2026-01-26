@@ -2,10 +2,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { trackApiUsage, logGeneration, createVideoJob } from '@/lib/db/server';
 import { requireAuthAndRateLimit, RATE_LIMITS } from '@/lib/middleware/auth';
+import { validatePrompt } from '@/lib/validation/input-validation';
+import {
+  validateModelId,
+  validateModelParameters,
+  getProviderForModel,
+  resolveModelId,
+  getResolvedModel,
+} from '@/lib/validation/model-validation';
+import { generateWithSora } from '@/lib/providers/video/sora';
+import { generateWithVeo } from '@/lib/providers/video/veo';
+import { generateWithKling } from '@/lib/providers/video/kling';
+import { generateWithPika } from '@/lib/providers/video/pika';
+import { generateWithVidu } from '@/lib/providers/video/vidu';
+import { generateWithGenmo } from '@/lib/providers/video/genmo';
+import { generateWithHaiper } from '@/lib/providers/video/haiper';
+import { generateWithFireflyVideo } from '@/lib/providers/video/firefly';
+import { batchQueue } from '@/lib/queue/batch-queue';
+import { ensureWorkerReady } from '@/lib/workers/local-worker-manager';
 
 interface VideoGenerationRequest {
   prompt: string;
-  provider: 'runway' | 'luma' | 'replicate';
+  modelId?: string; // Preferred: model ID from generation-models.ts
+  provider?:
+    | 'runway'
+    | 'luma'
+    | 'replicate'
+    | 'sora'
+    | 'veo'
+    | 'kling'
+    | 'pika'
+    | 'vidu'
+    | 'genmo'
+    | 'haiper'
+    | 'firefly'
+    | 'local'; // Legacy: direct provider
+  modelParams?: Record<string, any>; // Dynamic parameters from model definition
   imageUrl?: string; // For image-to-video
   duration?: number;
   webhookUrl?: string; // Optional webhook URL for completion callback
@@ -39,9 +71,13 @@ async function generateWithRunway(
     const requestBody: Record<string, unknown> = {
       promptImage: options.imageUrl,
       promptText: prompt,
-      model: 'gen3a_turbo',
-      duration: options.duration || 5,
+      model: 'gen-4-alpha',
+      duration: options.duration || 10, // Default to 10s for Gen-4
       ratio: '16:9',
+      advanced: {
+        camera_motion: 'cinematic',
+        motion_bucket: 7,
+      },
     };
 
     // Add webhook if provided
@@ -88,29 +124,23 @@ async function generateWithLuma(
   }
 
   try {
-    const requestBody: Record<string, unknown> = {
-      prompt,
-      aspect_ratio: '16:9',
-      loop: false,
-      keyframes: options.imageUrl
-        ? {
-            frame0: { type: 'image', url: options.imageUrl },
-          }
-        : undefined,
-    };
-
-    // Add webhook if provided
-    if (webhookUrl) {
-      requestBody.webhook_url = webhookUrl;
-    }
-
-    const response = await fetch('https://api.lumalabs.ai/dream-machine/v1/generations', {
+    const response = await fetch('https://api.lumalabs.ai/ray/v3/generations', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        prompt,
+        aspect_ratio: '16:9',
+        resolution: '4k',
+        keyframes: options.imageUrl
+          ? {
+              frame0: { type: 'image', url: options.imageUrl },
+            }
+          : undefined,
+        webhook_url: webhookUrl,
+      }),
     });
 
     if (!response.ok) {
@@ -192,14 +222,68 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: VideoGenerationRequest = await req.json();
-    const { prompt, provider, webhookUrl, ...options } = body;
+    const { prompt, modelId, provider: legacyProvider, modelParams, webhookUrl, ...options } = body;
 
-    if (!prompt) {
-      return NextResponse.json({ success: false, error: 'Prompt is required' }, { status: 400 });
+    // Validate prompt
+    const promptValidation = validatePrompt(prompt);
+    if (!promptValidation.valid) {
+      return NextResponse.json({ success: false, error: promptValidation.error }, { status: 400 });
+    }
+
+    // Determine provider from modelId or fallback to legacy provider
+    let provider: string | null = legacyProvider ?? null;
+    let resolvedModelId: string | undefined;
+    let validatedParams = { ...options, ...modelParams };
+
+    if (modelId) {
+      // Validate and resolve model ID
+      const modelValidation = validateModelId(modelId, 'video');
+      if (!modelValidation.valid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: modelValidation.errors.join(', '),
+            warnings: modelValidation.warnings,
+          },
+          { status: 400 },
+        );
+      }
+
+      resolvedModelId = resolveModelId(modelId);
+      provider = getProviderForModel(resolvedModelId);
+
+      // Log warnings for legacy model IDs
+      if (modelValidation.warnings.length > 0) {
+        console.warn('[VideoGeneration] Model ID warnings:', modelValidation.warnings);
+      }
+
+      // Validate parameters against model definition
+      if (modelParams) {
+        const paramValidation = validateModelParameters(resolvedModelId, modelParams);
+        if (!paramValidation.valid) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: paramValidation.errors.join(', '),
+              warnings: paramValidation.warnings,
+            },
+            { status: 400 },
+          );
+        }
+        validatedParams = { ...options, ...paramValidation.validatedParams };
+
+        // Log parameter warnings
+        if (paramValidation.warnings.length > 0) {
+          console.warn('[VideoGeneration] Parameter warnings:', paramValidation.warnings);
+        }
+      }
     }
 
     if (!provider) {
-      return NextResponse.json({ success: false, error: 'Provider is required' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Either modelId or provider is required' },
+        { status: 400 },
+      );
     }
 
     // Build webhook URL if not provided - default to our API webhook
@@ -211,13 +295,58 @@ export async function POST(req: NextRequest) {
 
     switch (provider) {
       case 'runway':
-        result = await generateWithRunway(prompt, options, finalWebhookUrl);
+        result = await generateWithRunway(prompt, validatedParams, finalWebhookUrl);
         break;
       case 'luma':
-        result = await generateWithLuma(prompt, options, finalWebhookUrl);
+        result = await generateWithLuma(prompt, validatedParams, finalWebhookUrl);
         break;
       case 'replicate':
-        result = await generateWithReplicate(prompt, options, finalWebhookUrl);
+        result = await generateWithReplicate(prompt, validatedParams, finalWebhookUrl);
+        break;
+      case 'sora':
+      case 'openai':
+        result = await generateWithSora(prompt, validatedParams);
+        break;
+      case 'veo':
+      case 'google':
+        result = await generateWithVeo(prompt, validatedParams);
+        break;
+      case 'kling':
+      case 'kuaishou':
+        result = await generateWithKling(prompt, validatedParams);
+        break;
+      case 'pika':
+        result = await generateWithPika(prompt, validatedParams);
+        break;
+      case 'vidu':
+      case 'shengshu':
+        result = await generateWithVidu(prompt, validatedParams);
+        break;
+      case 'genmo':
+        result = await generateWithGenmo(prompt, validatedParams);
+        break;
+      case 'haiper':
+        result = await generateWithHaiper(prompt, validatedParams);
+        break;
+      case 'firefly':
+      case 'adobe':
+        result = await generateWithFireflyVideo(prompt, validatedParams);
+        break;
+      case 'local':
+      case 'stability':
+        // Handle local video models
+        const localModelId = resolvedModelId || (modelParams?.model as string) || 'hunyuan-video';
+        const workerReady = await ensureWorkerReady(localModelId as any);
+        if (!workerReady.ready) {
+          return NextResponse.json({ success: false, error: workerReady.error }, { status: 503 });
+        }
+
+        const job = await batchQueue.add('generation', {
+          model_id: localModelId,
+          payload: { prompt, ...validatedParams },
+        });
+
+        result = { success: true, jobId: job.id, status: 'pending' as const };
         break;
       default:
         result = { success: false, error: `Unknown provider: ${provider}` };
@@ -237,17 +366,23 @@ export async function POST(req: NextRequest) {
         provider_job_id: result.jobId,
         prompt,
         metadata: {
-          image_url: options.imageUrl,
-          duration: options.duration,
+          model_id: resolvedModelId,
+          image_url: validatedParams.imageUrl,
+          duration: validatedParams.duration,
           webhook_url: finalWebhookUrl,
+          model_params: modelParams,
         },
       });
 
-      // Track usage (Estimated costs)
+      // Track usage (Estimated costs based on model/provider)
+      const modelDef = resolvedModelId ? getResolvedModel(resolvedModelId) : null;
       let costCents = 0;
-      if (provider === 'runway') costCents = 20;
+      if (modelDef?.pricing?.perGeneration) {
+        costCents = Math.round(modelDef.pricing.perGeneration * 100);
+      } else if (provider === 'runway') costCents = 20;
       else if (provider === 'luma') costCents = 15;
       else if (provider === 'replicate') costCents = 10;
+      else if (provider === 'local' || provider === 'stability') costCents = 0;
 
       await trackApiUsage({
         user_id: userId,
@@ -258,6 +393,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[VideoGeneration] Started job ${result.jobId}`, {
+      modelId: resolvedModelId,
       provider,
       prompt: prompt.substring(0, 50) + '...',
     });
@@ -266,6 +402,8 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         jobId: result.jobId,
+        modelId: resolvedModelId,
+        provider,
         status: 'pending',
         message: 'Video generation started. Use jobId to check status.',
       },

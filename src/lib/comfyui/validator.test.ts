@@ -384,7 +384,7 @@ describe('ComfyUI Workflow Validator', () => {
         '1': {
           class_type: 'CustomNode',
           inputs: (() => {
-            const obj: Record<string, unknown> = {};
+            const obj: Record<string, number> = {};
             for (let i = 0; i < 1500; i++) {
               obj[`key${i}`] = i;
             }

@@ -40,16 +40,23 @@ if (supabaseUrl && supabaseAnonKey) {
 
 export { supabase };
 
-// Server-side client with service role
+// Server-side client with service role (Singleton)
+let adminClient: SupabaseClient | null = null;
+
 export function createServerClient() {
+  if (adminClient) return adminClient;
+
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey || !supabaseUrl) {
     console.warn('Supabase service role not configured');
     return supabase; // Return regular client as fallback
   }
-  return createClient(supabaseUrl, serviceKey, {
+
+  adminClient = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
+
+  return adminClient;
 }
 
 // Types for database tables

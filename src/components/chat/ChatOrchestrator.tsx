@@ -35,6 +35,9 @@ import { useChatWithModel } from '@/lib/hooks/useChatWithModel';
 import { MessageNode } from '@/lib/types';
 import { GenerationRun } from '@/lib/types/workbench';
 import { AutoPullOverlay } from '@/components/shared/AutoPullOverlay';
+import { CostOptimizerAlert } from '@/components/ui/CostOptimizerAlert';
+import { useAnalyticsStore } from '@/lib/store/analytics-store';
+import { calculateCost } from '@/lib/utils/cost-estimation';
 
 export function ChatOrchestrator() {
   const activeThreadId = useChatStore((state) => state.activeThreadId);
@@ -48,7 +51,7 @@ export function ChatOrchestrator() {
   const currentLeafId = activeThread?.currentLeafId ?? null;
   const storeMessages: Record<string, MessageNode> = activeThread?.messages ?? {};
 
-  const threadModelId = activeThread?.modelId || 'gpt-4.5-turbo';
+  const threadModelId = activeThread?.modelId || 'gpt-5';
   const threadProviderId = activeThread?.providerId || 'openai';
 
   const [input, setInput] = useState('');
@@ -93,10 +96,23 @@ export function ChatOrchestrator() {
     if (prevStatusRef.current === 'streaming' && status === 'ready') {
       const lastMsg = messages[messages.length - 1];
       if (lastMsg?.role === 'assistant') {
+        const content = getMsgContent(lastMsg);
         addMessage({
           role: 'assistant',
-          content: getMsgContent(lastMsg),
+          content: content,
           parentId: currentLeafId,
+        });
+
+        // Log usage
+        const costCents = calculateCost(threadModelId, 0, content.length); // Assuming 0 for input if we only want to track response cost here for simplicity, or we could pass full thread
+        useAnalyticsStore.getState().trackUsage({
+          provider: threadProviderId,
+          model: threadModelId,
+          endpoint: '/api/chat',
+          tokensIn: 0,
+          tokensOut: content.length,
+          costCents,
+          success: true,
         });
       }
     }
@@ -438,7 +454,19 @@ export function ChatOrchestrator() {
           )}
         </Card>
 
-        <div className="mx-auto mt-8 mb-4 w-full max-w-3xl">
+        <div className="mx-auto mb-4 flex w-full max-w-3xl flex-col gap-2 pt-2">
+          <CostOptimizerAlert
+            modelId={threadModelId}
+            onApply={(optimizedId) => {
+              if (activeThreadId) {
+                const optimizedModel = SUPPORTED_MODELS.find((m) => m.modelId === optimizedId);
+                if (optimizedModel) {
+                  setThreadModel(activeThreadId, optimizedId, optimizedModel.providerId);
+                  toast.success(`Switched to ${optimizedModel.name} for cost savings!`);
+                }
+              }
+            }}
+          />
           <ChatInputArea
             value={input}
             onChange={setInput}

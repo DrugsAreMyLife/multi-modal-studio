@@ -16,10 +16,23 @@ import { Hash, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { GenerationSkeleton } from '@/components/ui/generation-skeleton';
+import { CostOptimizerAlert } from '@/components/ui/CostOptimizerAlert';
+import { useStyleDNAStore } from '@/lib/store/style-dna-store';
+import { dnaToPrompt } from '@/lib/style/style-dna';
+import { StyleDNABuilder } from '@/components/icon-studio/StyleDNABuilder';
+import { useAnalyticsStore } from '@/lib/store/analytics-store';
+import { calculateCost } from '@/lib/utils/cost-estimation';
+import {
+  DynamicParameterControls,
+  ModelCapabilitiesBadges,
+} from '@/components/shared/DynamicParameterControls';
+import { getGenerationModelById } from '@/lib/models/generation-models';
 
 export function ImageStudio() {
-  const { selectedModelId, settings } = useImageStudioStore();
+  const { selectedModelId, settings, modelParams, setModelParam } = useImageStudioStore();
+  const { activeDNA } = useStyleDNAStore();
   const { getApiHeaders } = useIntegrationStore();
+  const currentModel = getGenerationModelById(selectedModelId);
 
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -51,12 +64,13 @@ export function ImageStudio() {
           ...getApiHeaders(),
         },
         body: JSON.stringify({
-          prompt,
+          prompt: activeDNA ? `${prompt}, ${dnaToPrompt(activeDNA)}` : prompt,
           provider,
           model: selectedModelId,
           width: settings.width,
           height: settings.height,
-          numImages: 1,
+          numImages: modelParams.n || 1,
+          ...modelParams,
         }),
       });
 
@@ -94,6 +108,17 @@ export function ImageStudio() {
 
         if (status === 'completed' && imageUrl) {
           setGeneratedImage(imageUrl);
+          // Log usage to store for forecasting
+          const costCents = calculateCost(selectedModelId, prompt.length, 500); // 500 as mock output length for image
+          useAnalyticsStore.getState().trackUsage({
+            provider: provider,
+            model: selectedModelId,
+            endpoint: '/api/generate/image',
+            tokensIn: prompt.length,
+            tokensOut: 500,
+            costCents,
+            success: true,
+          });
         } else if (attempts >= maxAttempts) {
           throw new Error('Generation timed out');
         }
@@ -142,6 +167,17 @@ export function ImageStudio() {
 
       if (data.images && data.images.length > 0) {
         setGeneratedImage(data.images[0].url);
+        // Log usage to store
+        const costCents = calculateCost(selectedModelId, prompt.length, 500);
+        useAnalyticsStore.getState().trackUsage({
+          provider: provider,
+          model: selectedModelId,
+          endpoint: '/api/generate/image',
+          tokensIn: prompt.length,
+          tokensOut: 500,
+          costCents,
+          success: true,
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -273,7 +309,32 @@ export function ImageStudio() {
               </motion.div>
 
               <ModelRouter />
+
+              {/* Model Capabilities */}
+              {currentModel && (
+                <div className="space-y-2">
+                  <span className="text-muted-foreground text-xs">Capabilities</span>
+                  <ModelCapabilitiesBadges modelId={selectedModelId} />
+                </div>
+              )}
+
+              {/* Dynamic Parameters based on selected model */}
+              {currentModel && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold">Model Settings</span>
+                  </div>
+                  <DynamicParameterControls
+                    modelId={selectedModelId}
+                    values={modelParams}
+                    onChange={setModelParam}
+                    excludeParams={['prompt']}
+                  />
+                </motion.div>
+              )}
+
               <GenerationSettings />
+              <StyleDNABuilder />
 
               {generatedImage && slackConnected && (
                 <motion.div
@@ -314,7 +375,14 @@ export function ImageStudio() {
             </div>
           </ScrollArea>
 
-          <div className="border-border bg-background/50 border-t p-4">
+          <div className="border-border bg-background/50 space-y-3 border-t p-4">
+            <CostOptimizerAlert
+              modelId={selectedModelId}
+              onApply={(optimizedId) => {
+                useImageStudioStore.getState().setModel(optimizedId);
+                toast.success(`Optimized to ${optimizedId}!`);
+              }}
+            />
             <Button
               className="shadow-primary/20 h-10 w-full gap-2 shadow-lg"
               onClick={handleGenerate}

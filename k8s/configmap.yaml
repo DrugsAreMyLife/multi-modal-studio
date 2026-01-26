@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mmgs-config
+  namespace: mmgs
+data:
+  # Application settings
+  NODE_ENV: "production"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+  # Public URL (used for OAuth callbacks, webhooks)
+  NEXTAUTH_URL: "https://studio.drnickdavis.com"
+
+  # Local worker URLs (internal cluster networking)
+  QWEN_TTS_WORKER_URL: "http://mmgs-workers:8003"
+  HEART_WORKER_URL: "http://mmgs-workers:8001"
+  AUDIO_PROCESSOR_WORKER_URL: "http://mmgs-workers:8002"
+  COMFYUI_WORKER_URL: "http://mmgs-workers:8188"
+
+  # Worker configuration
+  WORKER_STARTUP_TIMEOUT: "120000"
+  WORKER_HEALTH_CHECK_INTERVAL: "30000"

@@ -19,7 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LLMNode } from './nodes/LLMNode';
 import { ImageNode } from './nodes/ImageNode';
-import { Plus, Play, Save, FolderOpen, Brain, ImageIcon } from 'lucide-react';
+import { Plus, Play, Save, FolderOpen, Brain, ImageIcon, Laptop, Workflow } from 'lucide-react';
+import { ComfyUIWorkflowBuilder } from './ComfyUIWorkflowBuilder';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { v4 as uuidv4 } from 'uuid';
 import {
   DropdownMenu,
@@ -45,6 +47,7 @@ export function WorkflowStudio() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialTemplate.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialTemplate.edges);
   const [isRunning, setIsRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState('visual');
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
@@ -228,71 +231,94 @@ export function WorkflowStudio() {
 
   return (
     <ErrorBoundary name="Workflow Studio">
-      <div className="flex h-full w-full flex-col">
-        {/* Toolbar */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
         <div className="bg-background/50 flex h-14 items-center justify-between border-b px-4 backdrop-blur">
           <div className="flex items-center gap-2">
-            <span className="mr-4 font-bold">Workflow Studio</span>
-            {WORKFLOW_TEMPLATES.map((t) => (
-              <Button
-                key={t.id}
-                variant="ghost"
-                size="sm"
-                onClick={() => loadTemplate(t)}
-                className="text-xs"
-              >
-                {t.name}
-              </Button>
-            ))}
-            <div className="bg-border mx-2 h-6 w-px" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-2 text-xs">
-                  <Plus size={14} /> Add Node
+            <span className="mr-4 text-lg font-bold">Workflow Studio</span>
+            <TabsList className="bg-secondary/40 h-9 p-1">
+              <TabsTrigger value="visual" className="h-7 gap-2 text-xs">
+                <Workflow size={14} /> Visual Engine
+              </TabsTrigger>
+              <TabsTrigger value="comfy" className="h-7 gap-2 text-xs">
+                <Laptop size={14} /> ComfyUI Builder
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
+        <TabsContent
+          value="visual"
+          className="m-0 flex flex-1 flex-col border-none p-0 outline-none data-[state=inactive]:hidden"
+        >
+          <div className="bg-background/50 flex h-14 shrink-0 items-center justify-between border-b px-4 backdrop-blur">
+            <div className="flex items-center gap-2">
+              {WORKFLOW_TEMPLATES.map((t) => (
+                <Button
+                  key={t.id}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => loadTemplate(t)}
+                  className="text-xs"
+                >
+                  {t.name}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="bg-background/80 w-48 border-white/10 backdrop-blur-xl"
+              ))}
+              <div className="bg-border mx-2 h-6 w-px" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 gap-2 text-xs">
+                    <Plus size={14} /> Add Node
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="bg-background/80 w-48 border-white/10 backdrop-blur-xl"
+                >
+                  <DropdownMenuItem onClick={() => onAddNode('llm')} className="gap-2">
+                    <Brain size={14} className="text-primary" /> LLM Processor
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onAddNode('image')} className="gap-2">
+                    <ImageIcon size={14} className="text-purple-500" /> Image Generator
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleRunWorkflow}
+                disabled={isRunning}
+                className="gap-2"
               >
-                <DropdownMenuItem onClick={() => onAddNode('llm')} className="gap-2">
-                  <Brain size={14} className="text-primary" /> LLM Processor
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAddNode('image')} className="gap-2">
-                  <ImageIcon size={14} className="text-purple-500" /> Image Generator
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                <Play size={14} /> {isRunning ? 'Running...' : 'Run Workflow'}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleRunWorkflow}
-              disabled={isRunning}
-              className="gap-2"
-            >
-              <Play size={14} /> {isRunning ? 'Running...' : 'Run Workflow'}
-            </Button>
-          </div>
-        </div>
 
-        {/* Canvas */}
-        <div className="bg-secondary/20 min-h-0 flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            fitView
-          >
-            <Background />
-            <Controls />
-          </ReactFlow>
-        </div>
-      </div>
+          {/* Canvas */}
+          <div className="bg-secondary/20 min-h-0 flex-1">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              fitView
+            >
+              <Background />
+              <Controls />
+            </ReactFlow>
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="comfy"
+          className="m-0 flex-1 overflow-auto p-6 data-[state=inactive]:hidden"
+        >
+          <ComfyUIWorkflowBuilder />
+        </TabsContent>
+      </Tabs>
     </ErrorBoundary>
   );
 }

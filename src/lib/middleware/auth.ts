@@ -1,6 +1,7 @@
 // Auth middleware for API routes
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
+import { verifyCsrfToken } from '@/lib/middleware/csrf';
 
 export interface AuthenticatedRequest extends NextRequest {
   userId?: string;
@@ -17,6 +18,23 @@ export async function requireAuth(
   | { authenticated: true; userId: string; userEmail?: string }
   | { authenticated: false; response: NextResponse }
 > {
+  // CSRF check for state-changing methods
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase())) {
+    const isCsrfValid = await verifyCsrfToken(req);
+    if (!isCsrfValid) {
+      return {
+        authenticated: false,
+        response: NextResponse.json(
+          {
+            error: 'Forbidden',
+            message: 'CSRF token validation failed.',
+          },
+          { status: 403 },
+        ),
+      };
+    }
+  }
+
   const session = await getSession();
 
   if (!session?.user?.id) {
@@ -40,9 +58,10 @@ export async function requireAuth(
 }
 
 import { ratelimit } from '@/lib/redis';
-import { Ratelimit } from '@upstash/ratelimit'; // Import type for stricter checking if needed, though ratelimit instance is sufficient
+import { Ratelimit } from '@upstash/ratelimit';
 
-// ... (previous imports)
+// Singleton Map for rate limiters (instantiated once per endpoint+config)
+const limiters = new Map<string, Ratelimit>();
 
 export interface RateLimitConfig {
   maxRequests: number; // Max requests per window
@@ -84,45 +103,26 @@ export async function checkRateLimit(
 
   const identifier = `${userId}:${endpoint}`;
 
-  // Create a specialized limiter for this route config dynamically?
-  // The global 'ratelimit' export in @/lib/redis is a fixed sliding window.
-  // To support variable windows/limits per route as per 'config', we technically need dynamic limiters.
-  // However, for simplicity and performance, we can reuse the client but we must override the limit.
-  // @upstash/ratelimit allows creating new instances cheaply.
-
-  // Let's use the global one but properly implementing different limits might require different prefixes or new instances.
-  // A clean way with single Redis connection:
-
-  // NOTE: For per-route config, we need to bypass the default single-instance export approach slightly
-  // or use the redis client directly to create a specific limiter.
-  // Let's import the 'redis' client too if needed, but actually `ratelimit` export was a specific instance.
-
-  // Refined Approach: We will ignore the global 'ratelimit' export parameters and just use the redis client from it
-  // if we can, OR just instantiate a new limiter here since it's cheap (it's stateless logic + redis call).
-
-  // Let's use a simpler approach: Override the limit logic or just assume standard limiting for now to match the existing 'ratelimit' export?
-  // The User's 'auth.ts' passed `config.maxRequests` and `config.windowMs`.
-  // To respect this, we should instantiate a limiter on the fly.
-
-  const { redis } = await import('@/lib/redis'); // Dynamic import to avoid circular dep issues if any, or just standard import
-
-  if (!redis) {
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[RateLimit] Redis client unavailable in production - failing closed');
-      return {
-        allowed: false,
-        response: NextResponse.json({ error: 'Service temporarily unavailable' }, { status: 503 }),
-      };
+  const getLimiter = (endpoint: string, config: RateLimitConfig) => {
+    const key = `${endpoint}:${config.maxRequests}:${config.windowMs}`;
+    if (!limiters.has(key)) {
+      limiters.set(
+        key,
+        new Ratelimit({
+          redis: ratelimit as any, // Use the imported ratelimit instance
+          limiter: Ratelimit.slidingWindow(
+            config.maxRequests,
+            `${Math.floor(config.windowMs / 1000)} s`,
+          ),
+          analytics: true,
+          prefix: `@upstash/ratelimit:${endpoint}`,
+        }),
+      );
     }
-    return { allowed: true };
-  }
+    return limiters.get(key)!;
+  };
 
-  const limiter = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(config.maxRequests, `${Math.floor(config.windowMs / 1000)} s`),
-    analytics: true,
-    prefix: `@upstash/ratelimit:${endpoint}`, // Separate namespaces per endpoint
-  });
+  const limiter = getLimiter(endpoint, config);
 
   const { success, limit, reset, remaining } = await limiter.limit(identifier);
 

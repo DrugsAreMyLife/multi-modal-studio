@@ -14,8 +14,13 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Mermaid } from '@/components/shared/Mermaid';
+import dynamic from 'next/dynamic';
 import { SUPPORTED_MODELS } from '@/lib/models/supported-models';
+
+const Mermaid = dynamic(() => import('@/components/shared/Mermaid').then((mod) => mod.Mermaid), {
+  ssr: false,
+  loading: () => <div className="h-64 w-full animate-pulse rounded-xl bg-white/5" />,
+});
 import { Play, FileText, Activity, Trash2, ExternalLink, Share2, Hash, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';

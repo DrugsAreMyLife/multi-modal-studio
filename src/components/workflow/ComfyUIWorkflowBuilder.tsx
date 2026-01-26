@@ -7,6 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Wand2, MessageSquare, Play, CheckCircle, XCircle } from 'lucide-react';
+import { AssistedWorkflowChat } from '@/components/comfyui/AssistedWorkflowChat';
+import { WorkflowPreviewPane } from '@/components/comfyui/WorkflowPreviewPane';
+import type { ConversationContext } from '@/lib/comfyui/state-machine-types';
+import type { ComfyUIWorkflow } from '@/lib/comfyui/types';
 
 interface ComfyUIWorkflowBuilderProps {
   onExecute?: (workflow: unknown) => void;
@@ -15,9 +19,14 @@ interface ComfyUIWorkflowBuilderProps {
 export function ComfyUIWorkflowBuilder({ onExecute }: ComfyUIWorkflowBuilderProps) {
   const [mode, setMode] = useState<'autonomous' | 'assisted'>('autonomous');
   const [prompt, setPrompt] = useState('');
-  const [workflow, setWorkflow] = useState<unknown>(null);
+  const [workflow, setWorkflow] = useState<ComfyUIWorkflow | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [workflowMeta, setWorkflowMeta] = useState<{
+    confidence?: number;
+    explanation?: string;
+    templateUsed?: string;
+  }>({});
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -34,11 +43,44 @@ export function ComfyUIWorkflowBuilder({ onExecute }: ComfyUIWorkflowBuilderProp
 
       const data = await response.json();
       setWorkflow(data.workflow);
+      setWorkflowMeta({
+        confidence: data.confidence,
+        explanation: data.explanation,
+        templateUsed: data.template_used,
+      });
     } catch (error) {
       console.error('Failed to generate workflow:', error);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleAssistedWorkflowGenerated = async (context: ConversationContext) => {
+    // Generate final workflow from the conversation context
+    if (!context.partialWorkflow) return;
+
+    setWorkflow(context.partialWorkflow as ComfyUIWorkflow);
+    setWorkflowMeta({
+      confidence: context.confidence,
+      explanation: `Workflow generated from conversation (${context.completionPercentage.toFixed(0)}% complete)`,
+      templateUsed: context.templateId,
+    });
+  };
+
+  const handleDownloadWorkflow = () => {
+    if (!workflow) return;
+
+    const blob = new Blob([JSON.stringify(workflow, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comfyui-workflow-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleExecute = async () => {
@@ -114,11 +156,10 @@ export function ComfyUIWorkflowBuilder({ onExecute }: ComfyUIWorkflowBuilderProp
             </TabsContent>
 
             <TabsContent value="assisted" className="space-y-4">
-              <div className="bg-muted/50 min-h-[200px] rounded-lg border p-4">
-                <p className="text-muted-foreground text-center text-sm">
-                  Assisted workflow builder coming soon...
-                </p>
-              </div>
+              <AssistedWorkflowChat
+                onWorkflowGenerated={handleAssistedWorkflowGenerated}
+                onCancel={() => setMode('autonomous')}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -126,22 +167,14 @@ export function ComfyUIWorkflowBuilder({ onExecute }: ComfyUIWorkflowBuilderProp
 
       {/* Workflow Preview */}
       {workflow && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">Generated Workflow</CardTitle>
-              <Button onClick={handleExecute} size="sm" className="gap-2">
-                <Play className="h-4 w-4" />
-                Execute
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <pre className="bg-muted max-h-[300px] overflow-auto rounded-lg p-4 text-xs">
-              {JSON.stringify(workflow, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
+        <WorkflowPreviewPane
+          workflow={workflow}
+          confidence={workflowMeta.confidence}
+          explanation={workflowMeta.explanation}
+          templateUsed={workflowMeta.templateUsed}
+          onUseWorkflow={handleExecute}
+          onDownload={handleDownloadWorkflow}
+        />
       )}
     </div>
   );

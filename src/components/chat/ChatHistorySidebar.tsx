@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, MessageSquare, Trash2, Clock, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns'; // Wait, I checked and it's NOT there.
+import { ConversationSearch } from './ConversationSearch';
 
 const ThreadItem = memo(
   ({
@@ -87,7 +87,7 @@ export function ChatHistorySidebar() {
 
   return (
     <div className="border-border bg-background/50 flex h-full w-64 flex-col border-r">
-      <div className="border-border border-b p-4">
+      <div className="border-border space-y-3 border-b p-4">
         <Button
           onClick={() => createNewThread()}
           className="flex w-full items-center justify-start gap-2"
@@ -96,6 +96,7 @@ export function ChatHistorySidebar() {
           <Plus size={16} />
           New Chat
         </Button>
+        <ConversationSearch />
       </div>
 
       <ScrollArea className="flex-1">

@@ -2,10 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { trackApiUsage, logGeneration } from '@/lib/db/server';
 import { requireAuthAndRateLimit, RATE_LIMITS } from '@/lib/middleware/auth';
+import { validatePrompt } from '@/lib/validation/input-validation';
+import {
+  validateModelId,
+  validateModelParameters,
+  getProviderForModel,
+  resolveModelId,
+  getResolvedModel,
+} from '@/lib/validation/model-validation';
+import { generateWithFluxMax } from '@/lib/providers/image/flux-max';
+import { generateWithMidjourney } from '@/lib/providers/image/midjourney';
+import { generateWithIdeogram } from '@/lib/providers/image/ideogram';
+import { comfyUIRouter } from '@/lib/comfyui/workflow-router';
+import { batchQueue } from '@/lib/queue/batch-queue';
+import { ensureWorkerReady } from '@/lib/workers/local-worker-manager';
 
 interface ImageGenerationRequest {
   prompt: string;
-  provider: 'openai' | 'stability' | 'replicate';
+  modelId?: string; // Preferred: model ID from generation-models.ts
+  provider?:
+    | 'openai'
+    | 'stability'
+    | 'replicate'
+    | 'flux-max'
+    | 'midjourney'
+    | 'ideogram'
+    | 'comfyui'
+    | 'local'; // Legacy: direct provider
+  modelParams?: Record<string, any>; // Dynamic parameters from model definition
   model?: string;
   width?: number;
   height?: number;
@@ -79,8 +103,16 @@ async function generateWithOpenAI(
       };
     } else {
       // Normal generation
-      requestBody.model = options.model || 'dall-e-3';
-      requestBody.quality = 'hd';
+      requestBody.model = options.model || 'gpt-image-1.5';
+      requestBody.quality = options.quality || 'hd';
+
+      // SOTA 2026 Features
+      if (options.controlled_design) {
+        requestBody.controlled_design = options.controlled_design;
+      }
+      if (options.text_precision) {
+        requestBody.text_precision = options.text_precision;
+      }
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -249,27 +281,135 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: ImageGenerationRequest = await req.json();
-    const { prompt, provider, ...options } = body;
+    const { prompt, modelId, provider: legacyProvider, modelParams, ...options } = body;
+
+    // Validate prompt
+    const promptValidation = validatePrompt(prompt);
+    if (!promptValidation.valid) {
+      return NextResponse.json({ success: false, error: promptValidation.error }, { status: 400 });
+    }
+
+    // Determine provider from modelId or fallback to legacy provider
+    let provider: string | null = legacyProvider ?? null;
+    let resolvedModelId: string | undefined;
+    let validatedParams = { ...options, ...modelParams };
+
+    if (modelId) {
+      // Validate and resolve model ID
+      const modelValidation = validateModelId(modelId, 'image');
+      if (!modelValidation.valid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: modelValidation.errors.join(', '),
+            warnings: modelValidation.warnings,
+          },
+          { status: 400 },
+        );
+      }
+
+      resolvedModelId = resolveModelId(modelId);
+      provider = getProviderForModel(resolvedModelId);
+
+      // Log warnings for legacy model IDs
+      if (modelValidation.warnings.length > 0) {
+        console.warn('[ImageGeneration] Model ID warnings:', modelValidation.warnings);
+      }
+
+      // Validate parameters against model definition
+      if (modelParams) {
+        const paramValidation = validateModelParameters(resolvedModelId, modelParams);
+        if (!paramValidation.valid) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: paramValidation.errors.join(', '),
+              warnings: paramValidation.warnings,
+            },
+            { status: 400 },
+          );
+        }
+        validatedParams = { ...options, ...paramValidation.validatedParams };
+
+        // Log parameter warnings
+        if (paramValidation.warnings.length > 0) {
+          console.warn('[ImageGeneration] Parameter warnings:', paramValidation.warnings);
+        }
+      }
+    }
+
+    if (!provider) {
+      return NextResponse.json(
+        { success: false, error: 'Either modelId or provider is required' },
+        { status: 400 },
+      );
+    }
 
     // Get keys from headers if provided
     const providedKey = req.headers.get(`x-api-key-${provider}`) || undefined;
-
-    if (!prompt) {
-      return NextResponse.json({ success: false, error: 'Prompt is required' }, { status: 400 });
-    }
 
     const webhookUrl = `${req.nextUrl.protocol}//${req.nextUrl.host}/api/webhooks/replicate`;
     let result: ImageGenerationResponse;
 
     switch (provider) {
       case 'openai':
-        result = await generateWithOpenAI(prompt, options, providedKey);
+        result = await generateWithOpenAI(prompt, validatedParams, providedKey);
         break;
       case 'stability':
-        result = await generateWithStability(prompt, options, providedKey);
+        result = await generateWithStability(prompt, validatedParams, providedKey);
         break;
       case 'replicate':
-        result = await generateWithReplicate(prompt, options, webhookUrl, providedKey);
+        result = await generateWithReplicate(prompt, validatedParams, webhookUrl, providedKey);
+        break;
+      case 'flux-max':
+      case 'bfl':
+        result = await generateWithFluxMax({ prompt, ...validatedParams }, providedKey, webhookUrl);
+        break;
+      case 'midjourney':
+        result = await generateWithMidjourney(prompt, providedKey);
+        break;
+      case 'ideogram':
+        result = await generateWithIdeogram(prompt, providedKey);
+        break;
+      case 'comfyui':
+        result = await comfyUIRouter.executeWorkflow(
+          (modelParams?.workflow as string) || 'default',
+          { prompt, ...validatedParams },
+        );
+        break;
+      case 'local':
+      case 'qwen':
+      case 'hunyuan':
+      case 'meta':
+      case 'deepseek':
+        // Handle local workers via Batch Queue
+        const localModelId = resolvedModelId || validatedParams.model;
+        const workerId =
+          localModelId === 'qwen-image'
+            ? 'qwen-image'
+            : localModelId === 'hunyuan-image'
+              ? 'hunyuan-image'
+              : localModelId === 'sam-2'
+                ? 'sam2'
+                : localModelId === 'deepseek-janus-pro-7b'
+                  ? 'deepseek-janus'
+                  : null;
+
+        if (workerId) {
+          const workerReady = await ensureWorkerReady(workerId as any);
+          if (!workerReady.ready) {
+            return NextResponse.json({ success: false, error: workerReady.error }, { status: 503 });
+          }
+
+          const job = await batchQueue.add('generation', {
+            model_id: localModelId,
+            payload: { prompt, ...validatedParams },
+          });
+
+          result = { success: true, jobId: job.id, status: 'pending' as const };
+        } else {
+          result = { success: false, error: `Unsupported local model: ${localModelId}` };
+        }
         break;
       default:
         result = { success: false, error: `Unknown provider: ${provider}` };
@@ -279,6 +419,7 @@ export async function POST(req: NextRequest) {
     const session = await getSession();
     if (session?.user?.id && (result.success || result.jobId)) {
       const userId = session.user.id;
+      const effectiveModelId = resolvedModelId || validatedParams.model || 'unknown';
 
       // Handle async jobs (like Replicate)
       if (result.jobId) {
@@ -286,11 +427,11 @@ export async function POST(req: NextRequest) {
           user_id: userId,
           type: 'image',
           prompt,
-          model_id: options.model || 'replicate-flux',
+          model_id: effectiveModelId,
           provider,
           status: 'pending',
           provider_job_id: result.jobId,
-          metadata: { ...options, webhook_url: webhookUrl },
+          metadata: { ...validatedParams, model_params: modelParams, webhook_url: webhookUrl },
         });
       }
       // Handle immediate results (like OpenAI/Stability)
@@ -300,20 +441,31 @@ export async function POST(req: NextRequest) {
             user_id: userId,
             type: 'image',
             prompt,
-            model_id: options.model || 'unknown',
+            model_id: effectiveModelId,
             provider,
             status: 'completed',
             result_url: img.url,
-            metadata: { ...options, seed: img.seed },
+            metadata: { ...validatedParams, model_params: modelParams, seed: img.seed },
           });
         }
       }
 
-      // Track usage (Estimated costs)
+      // Track usage (Estimated costs based on model/provider)
+      const modelDef = resolvedModelId ? getResolvedModel(resolvedModelId) : null;
+      const numImages = validatedParams.numImages || 1;
       let costCents = 0;
-      if (provider === 'openai') costCents = (options.numImages || 1) * 4;
-      else if (provider === 'stability') costCents = (options.numImages || 1) * 2;
-      else if (provider === 'replicate') costCents = (options.numImages || 1) * 1;
+      if (modelDef?.pricing?.perGeneration) {
+        costCents = Math.round(modelDef.pricing.perGeneration * 100 * numImages);
+      } else if (provider === 'openai') costCents = numImages * 4;
+      else if (provider === 'stability') costCents = numImages * 2;
+      else if (provider === 'replicate') costCents = numImages * 1;
+      else if (
+        provider === 'local' ||
+        provider === 'qwen' ||
+        provider === 'hunyuan' ||
+        provider === 'deepseek'
+      )
+        costCents = 0;
 
       await trackApiUsage({
         user_id: userId,
@@ -323,7 +475,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(result, { status: result.success ? 200 : 500 });
+    console.log(`[ImageGeneration] Completed`, {
+      modelId: resolvedModelId,
+      provider,
+      success: result.success,
+      jobId: result.jobId,
+    });
+
+    return NextResponse.json(
+      { ...result, modelId: resolvedModelId, provider },
+      { status: result.success ? 200 : 500 },
+    );
   } catch (error) {
     console.error('API Route Error:', error);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { apiFetch } from '@/lib/utils/api-client';
 
 export interface VideoJob {
   jobId: string;
@@ -51,9 +52,8 @@ export function useVideoGeneration() {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch('/api/generate/video', {
+        const data = await apiFetch<any>('/api/generate/video', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt,
             provider,
@@ -62,15 +62,6 @@ export function useVideoGeneration() {
             webhookUrl: options?.webhookUrl,
           }),
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error || `Failed to start video generation: ${response.statusText}`,
-          );
-        }
-
-        const data = await response.json();
 
         if (!data.success || !data.jobId) {
           throw new Error(data.error || 'Failed to start video generation');

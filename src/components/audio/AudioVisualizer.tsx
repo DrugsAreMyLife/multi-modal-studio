@@ -7,11 +7,13 @@ import { Play, Pause, Download, Volume2, AudioLines } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 
-interface AudioVisualizerProps {
+export interface AudioVisualizerProps {
   url: string;
   height?: number;
   waveColor?: string;
   progressColor?: string;
+  barWidth?: number;
+  gap?: number;
 }
 
 export function AudioVisualizer({
@@ -19,6 +21,8 @@ export function AudioVisualizer({
   height = 120,
   waveColor = '#64748b',
   progressColor = '#3b82f6',
+  barWidth = 2,
+  gap = 3,
 }: AudioVisualizerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
@@ -35,8 +39,8 @@ export function AudioVisualizer({
       waveColor: waveColor,
       progressColor: progressColor,
       height: height,
-      barWidth: 2,
-      barGap: 3,
+      barWidth: barWidth,
+      barGap: gap,
       cursorWidth: 1,
       cursorColor: '#ef4444',
       barRadius: 3,

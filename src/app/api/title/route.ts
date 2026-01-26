@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
       model: createUniversalModel('openai', 'gpt-4o-mini'),
       system:
         'You are a helpful assistant that generates concise (3-5 words) titles for conversations. You do not use quotes or punctuation like periods.',
-      prompt: `Generate a title for the following conversation:\n\n${messages
+      prompt: `Generate a title for the following conversation: \n\n${messages
         .map((m: any) => `${m.role}: ${m.content}`)
         .join('\n')
-        .slice(0, 2000)}`,
+        .slice(0, 2000)} `,
     });
 
     return Response.json({ title: text });

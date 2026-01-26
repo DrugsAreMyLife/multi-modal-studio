@@ -24,12 +24,12 @@ export const AVAILABLE_VIDEO_MODELS = [
   },
   // --- Runway ---
   {
-    id: 'runway-gen-4.5',
-    name: 'Runway Gen-4.5',
+    id: 'runway-gen4',
+    name: 'Runway Gen-4 (Flagship)',
     provider: 'cloud',
     tier: 'ultra',
     capabilities: {
-      max_duration: 10,
+      max_duration: 15,
       supports_extensions: true,
       supports_camera: true,
     },
@@ -59,12 +59,12 @@ export const AVAILABLE_VIDEO_MODELS = [
   },
   // --- Luma Labs ---
   {
-    id: 'luma-ray3-hdr',
-    name: 'Luma Ray 3 HDR',
+    id: 'luma-ray3',
+    name: 'Luma Ray 3 (SOTA)',
     provider: 'cloud',
     tier: 'ultra',
     capabilities: {
-      max_duration: 9,
+      max_duration: 10,
       supports_extensions: true,
       supports_camera: true,
     },
@@ -82,7 +82,7 @@ export const AVAILABLE_VIDEO_MODELS = [
   },
   // --- Kling (Kuaishou) ---
   {
-    id: 'kling-2.5-turbo',
+    id: 'kling-2.5',
     name: 'Kling 2.5 Turbo',
     provider: 'cloud',
     tier: 'ultra',
@@ -93,7 +93,7 @@ export const AVAILABLE_VIDEO_MODELS = [
     },
   },
   {
-    id: 'kling-2.1-master',
+    id: 'kling-2.1',
     name: 'Kling 2.1 Master',
     provider: 'cloud',
     tier: 'pro',
@@ -116,7 +116,7 @@ export const AVAILABLE_VIDEO_MODELS = [
   },
   // --- Pika Labs ---
   {
-    id: 'pika-2.1-turbo',
+    id: 'pika-2.1',
     name: 'Pika 2.1 Turbo',
     provider: 'cloud',
     tier: 'pro',
@@ -163,7 +163,7 @@ export const AVAILABLE_VIDEO_MODELS = [
   },
   // --- MiniMax ---
   {
-    id: 'hailuo-t2v-01-director',
+    id: 'hailuo-t2v-01',
     name: 'Hailuo T2V-01 Director',
     provider: 'cloud',
     tier: 'standard',
@@ -236,6 +236,13 @@ export const AVAILABLE_VIDEO_MODELS = [
 ];
 
 interface VideoStudioStore extends VideoState {
+  // Prompt and dynamic parameters
+  prompt: string;
+  modelParams: Record<string, any>;
+  setPrompt: (prompt: string) => void;
+  setModelParam: (key: string, value: any) => void;
+  setModelParams: (params: Record<string, any>) => void;
+
   addClip: (clip: Omit<VideoClip, 'id'>) => string;
   updateClip: (id: string, updates: Partial<VideoClip>) => void;
   deleteClip: (id: string) => void;
@@ -260,6 +267,16 @@ export const useVideoStudioStore = create<VideoStudioStore>()(
       currentTime: 0,
       selectedClipId: null,
 
+      // Prompt and dynamic parameters
+      prompt: '',
+      modelParams: {},
+      setPrompt: (prompt) => set({ prompt }),
+      setModelParam: (key, value) =>
+        set((state) => ({
+          modelParams: { ...state.modelParams, [key]: value },
+        })),
+      setModelParams: (params) => set({ modelParams: params }),
+
       startFrame: null,
       endFrame: null,
       duration: 4, // Default 4s generation
@@ -273,7 +290,7 @@ export const useVideoStudioStore = create<VideoStudioStore>()(
       seed: -1,
       loopMode: false,
       interpolate: true,
-      selectedModelId: 'runway-gen3-alpha',
+      selectedModelId: 'runway-gen4',
 
       addClip: (partialClip) => {
         const id = uuidv4();
