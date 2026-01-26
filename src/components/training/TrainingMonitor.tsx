@@ -15,7 +15,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { XCircle, CheckCircle, Clock, Zap, AlertCircle, TrendingDown, Images } from 'lucide-react';
+import {
+  XCircle,
+  CheckCircle,
+  Clock,
+  Zap,
+  AlertCircle,
+  TrendingDown,
+  Images,
+  Info,
+} from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LossGraph } from './LossGraph';
 import { LossGraphControls } from './LossGraphControls';
 import { LossGraphMetrics } from './LossGraphMetrics';
@@ -314,7 +324,20 @@ function JobCard({
               {/* Current Loss */}
               {job.current_loss !== undefined && (
                 <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs">Loss</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-muted-foreground text-xs">Loss</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={10} className="text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-[11px]">
+                          A measure of how well the AI is learning. Lower is better. A steady
+                          downward trend indicates healthy training.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <p className="font-mono text-sm font-medium">{job.current_loss.toFixed(4)}</p>
                 </div>
               )}

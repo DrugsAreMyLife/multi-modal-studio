@@ -51,19 +51,31 @@ export default function TrainingPage() {
                 <ul className="text-muted-foreground space-y-2 text-sm">
                   <li className="flex items-start gap-2">
                     <span className="text-primary">•</span>
-                    <span>Jobs automatically refresh every 5 seconds</span>
+                    <span>
+                      <strong>Live Updates:</strong> Progress and metrics refresh every 5s
+                      automatically.
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary">•</span>
-                    <span>Cancel active jobs using the cancel button (running jobs only)</span>
+                    <span>
+                      <strong>Checkpoints:</strong> If you cancel a running job, we save the most
+                      recent stable checkpoint.
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary">•</span>
-                    <span>Progress is saved to the last checkpoint when cancelled</span>
+                    <span>
+                      <strong>Analyzing Quality:</strong> Watch the "Loss" value. If it's going down
+                      over time, your model is learning well!
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary">•</span>
-                    <span>Click on a job card to view detailed metrics and logs</span>
+                    <span>
+                      <strong>Samples:</strong> Check the "Sample Images" tab during training to see
+                      how the model is improving visually.
+                    </span>
                   </li>
                 </ul>
               </CardContent>

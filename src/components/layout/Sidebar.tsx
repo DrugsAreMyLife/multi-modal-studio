@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ModelManager } from '@/components/settings/ModelManager';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export type ViewMode =
   | 'workbench'
@@ -59,21 +60,28 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
 
       <div className="flex w-full flex-col gap-2 px-2">
         {navItems.map((item) => (
-          <Button
-            key={item.id}
-            variant="ghost"
-            size="icon"
-            className={cn(
-              'hover:bg-muted h-10 w-full rounded-xl transition-all',
-              currentView === item.id
-                ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                : 'text-muted-foreground',
-            )}
-            onClick={() => onViewChange(item.id as ViewMode)}
-            title={item.label}
-          >
-            <item.icon size={20} />
-          </Button>
+          <TooltipProvider key={item.id}>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    'hover:bg-muted h-10 w-full rounded-xl transition-all',
+                    currentView === item.id
+                      ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                      : 'text-muted-foreground',
+                  )}
+                  onClick={() => onViewChange(item.id as ViewMode)}
+                >
+                  <item.icon size={20} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10} className="text-xs font-semibold">
+                {item.label}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ))}
       </div>
 

@@ -29,6 +29,7 @@ import { ReferenceAudioUpload } from './ReferenceAudioUpload';
 import { DragDropZone } from './DragDropZone';
 import { TrainingSampleList } from './TrainingSampleList';
 import { TrainingProgressDisplay } from './TrainingProgressDisplay';
+import { VoiceProTips } from './VoiceProTips';
 import { cn } from '@/lib/utils';
 
 interface WorkerStatus {
@@ -189,6 +190,8 @@ export function QwenTTSPanel() {
             <Switch checked={xVectorOnlyMode} onCheckedChange={setXVectorOnlyMode} />
           </div>
 
+          <VoiceProTips mode="clone" />
+
           <LanguageSelector value={selectedLanguage} onChange={setSelectedLanguage} />
         </TabsContent>
 
@@ -233,6 +236,8 @@ export function QwenTTSPanel() {
             </div>
           </div>
 
+          <VoiceProTips mode="design" />
+
           <LanguageSelector value={selectedLanguage} onChange={setSelectedLanguage} />
         </TabsContent>
 
@@ -271,6 +276,8 @@ export function QwenTTSPanel() {
                   </span>
                 </div>
               </div>
+
+              <VoiceProTips mode="train" />
 
               <LanguageSelector value={selectedLanguage} onChange={setSelectedLanguage} />
             </>

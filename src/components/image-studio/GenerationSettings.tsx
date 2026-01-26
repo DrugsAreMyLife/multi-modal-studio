@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { StyleSelector } from './StyleSelector';
 import { AspectRatioSelector } from './AspectRatioSelector';
-import { Wand2, SlidersHorizontal } from 'lucide-react';
+import { Wand2, SlidersHorizontal, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function GenerationSettings() {
   const { selectedModelId, settings, tunes, updateSettings, updateTunes } = useImageStudioStore();
@@ -146,7 +147,20 @@ export function GenerationSettings() {
       {caps.supports_steps && (
         <div className="space-y-4">
           <div className="flex justify-between">
-            <Label className="text-xs">Steps</Label>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-xs">Steps</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info size={12} className="text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-[11px]">
+                    More steps generally mean higher detail but take longer to generate. 20-30 is
+                    usually the sweet spot.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <span className="text-muted-foreground text-xs">{settings.steps}</span>
           </div>
           <Slider
@@ -163,7 +177,20 @@ export function GenerationSettings() {
       {caps.supports_cfg && (
         <div className="space-y-4">
           <div className="flex justify-between">
-            <Label className="text-xs">Guidance Scale (CFG)</Label>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-xs">Guidance Scale (CFG)</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info size={12} className="text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-[11px]">
+                    High values stick strictly to your text; low values give the AI more artistic
+                    freedom. Usually 7-9 is best.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <span className="text-muted-foreground text-xs">{settings.cfgScale}</span>
           </div>
           <Slider
@@ -183,7 +210,20 @@ export function GenerationSettings() {
 
         {/* Seed */}
         <div className="space-y-2">
-          <Label className="text-xs">Seed</Label>
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs">Seed</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info size={12} className="text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs text-[11px]">
+                  A unique number that locks the "noise" of a generation. Use the same seed to
+                  iterate on one specific look.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <div className="flex gap-2">
             <Input
               type="number"

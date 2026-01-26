@@ -5,8 +5,9 @@ import { useAudioStudioStore } from '@/lib/store/audio-studio-store';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Upload, X, Play, Pause, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, X, Play, Pause, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const MIN_DURATION = 3; // seconds
@@ -109,7 +110,20 @@ export function ReferenceAudioUpload() {
 
   return (
     <div className="space-y-3">
-      <Label className="text-xs">Reference Audio (3-30 seconds)</Label>
+      <div className="flex items-center gap-1.5">
+        <Label className="text-xs">Reference Audio (3-30 seconds)</Label>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info size={12} className="text-muted-foreground cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs text-[11px]">
+              Choosing a clip with the clearest voice and least background noise will give you the
+              best results.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       {!cloneRef?.audioUrl ? (
         <div
@@ -201,7 +215,20 @@ export function ReferenceAudioUpload() {
           {!xVectorOnlyMode && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Transcript</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs">Transcript</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info size={12} className="text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs text-[11px]">
+                        Include stumbles, "ums", and pauses exactly as they sound. This helps the AI
+                        learn her natural rhythm.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <span className="text-muted-foreground text-[10px]">Required for best quality</span>
               </div>
               <Textarea

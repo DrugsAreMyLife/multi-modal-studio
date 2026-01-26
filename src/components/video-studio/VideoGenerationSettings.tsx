@@ -2,7 +2,8 @@
 
 import { useVideoStudioStore } from '@/lib/store/video-studio-store';
 import { FineTuneControl } from '@/components/shared/FineTuneControl';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function VideoGenerationSettings() {
   const { tunes, updateTunes } = useVideoStudioStore();
@@ -20,6 +21,7 @@ export function VideoGenerationSettings() {
         onChange={(v) => updateTunes({ stability: v })}
         leftLabel="Fluid / Morphing"
         rightLabel="Stable / Consistent"
+        tooltip="Higher values reduce flickering and maintain consistent shapes across frames."
       />
 
       <FineTuneControl
@@ -28,6 +30,7 @@ export function VideoGenerationSettings() {
         onChange={(v) => updateTunes({ amplitude: v })}
         leftLabel="Subtle / Still"
         rightLabel="High Action"
+        tooltip="Controls how much action occurs. Lower values are cinematic/still, higher values are high-energy."
       />
 
       <FineTuneControl
@@ -36,6 +39,7 @@ export function VideoGenerationSettings() {
         onChange={(v) => updateTunes({ coherence: v })}
         leftLabel="Dreamy / Abstract"
         rightLabel="Realistic"
+        tooltip="How well the frames adhere to the prompt and previous frames."
       />
       {/* Advanced Video Config */}
       <div className="border-border space-y-4 border-t pt-4">
@@ -48,7 +52,20 @@ export function VideoGenerationSettings() {
         {/* Seed Control - Reusing the pattern */}
         <div className="space-y-2">
           <div className="flex justify-between">
-            <span className="text-xs">Seed</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-foreground/80 text-xs">Seed</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info size={12} className="text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-[11px]">
+                    A unique number that locks the "noise" of a generation. Use the same seed to
+                    iterate on one specific look.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <span className="text-muted-foreground text-[10px]">Reproducibility</span>
           </div>
           <input
@@ -59,12 +76,37 @@ export function VideoGenerationSettings() {
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-xs">Seamless Loop Mode</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-foreground/80 text-xs">Seamless Loop Mode</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info size={12} className="text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs text-[11px]">
+                  Ensures the end of the video matches the beginning for perfectly looping
+                  animations.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <input type="checkbox" className="accent-primary" />
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-xs">Frame Interpolation</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-foreground/80 text-xs">Frame Interpolation</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info size={12} className="text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs text-[11px]">
+                  Generates extra frames between shots for much smoother, higher-framerate motion.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <input type="checkbox" defaultChecked className="accent-primary" />
         </div>
       </div>

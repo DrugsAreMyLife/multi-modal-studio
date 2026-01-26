@@ -22,7 +22,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Upload, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Upload, Trash2, Image as ImageIcon, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function DatasetManager() {
   const { datasets, isLoading, fetchDatasets, createDataset, deleteDataset, setSelectedDataset } =
@@ -120,7 +121,20 @@ export function DatasetManager() {
             </div>
 
             <div>
-              <Label htmlFor="dataset-type">Training Type</Label>
+              <div className="mb-2 flex items-center gap-1.5">
+                <Label htmlFor="dataset-type">Training Type</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info size={12} className="text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs text-[11px]">
+                      LoRA is fast and lightweight. Dreambooth is better for learning specific
+                      subjects/faces. Checkpoints are for large-scale style learning.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Select value={newDatasetType} onValueChange={setNewDatasetType}>
                 <SelectTrigger id="dataset-type">
                   <SelectValue />
