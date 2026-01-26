@@ -55,30 +55,119 @@ spec:
         - name: ghcr-secret
 
 ---
-# GPU Worker Deployment - Runs on nodes with NVIDIA GPUs
+# GPU Worker Deployment - RTX 5090 Node (32GB VRAM)
+# High-capacity node for video generation and large models
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mmgs-workers
+  name: mmgs-workers-5090
   namespace: mmgs
   labels:
     app: mmgs
     component: workers
+    gpu-tier: high
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: mmgs
       component: workers
+      gpu-tier: high
   template:
     metadata:
       labels:
         app: mmgs
         component: workers
+        gpu-tier: high
     spec:
-      # Schedule on GPU nodes only
+      # Schedule on RTX 5090 nodes
       nodeSelector:
         nvidia.com/gpu.present: "true"
+        nvidia.com/gpu.memory: "32Gi"
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: workers
+          image: ghcr.io/drugsaremylife/mmgs-workers:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+              name: heart
+            - containerPort: 8002
+              name: audio-proc
+            - containerPort: 8003
+              name: qwen-tts
+            - containerPort: 8007
+              name: hunyuan-video
+            - containerPort: 8015
+              name: personaplex
+            - containerPort: 8188
+              name: comfyui
+          env:
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility"
+            - name: GPU_VRAM_MB
+              value: "32768"
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+          resources:
+            requests:
+              memory: "16Gi"
+              cpu: "4000m"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "48Gi"
+              cpu: "16000m"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /root/.cache/huggingface
+            - name: comfyui-models
+              mountPath: /app/ComfyUI/models
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: mmgs-model-cache
+        - name: comfyui-models
+          persistentVolumeClaim:
+            claimName: mmgs-comfyui-models
+      imagePullSecrets:
+        - name: ghcr-secret
+
+---
+# GPU Worker Deployment - RTX 4090 Node (24GB VRAM)
+# Standard capacity node for image/audio generation
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mmgs-workers-4090
+  namespace: mmgs
+  labels:
+    app: mmgs
+    component: workers
+    gpu-tier: standard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mmgs
+      component: workers
+      gpu-tier: standard
+  template:
+    metadata:
+      labels:
+        app: mmgs
+        component: workers
+        gpu-tier: standard
+    spec:
+      # Schedule on RTX 4090 nodes
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+        nvidia.com/gpu.memory: "24Gi"
       tolerations:
         - key: "nvidia.com/gpu"
           operator: "Exists"
@@ -101,6 +190,10 @@ spec:
               value: "all"
             - name: NVIDIA_DRIVER_CAPABILITIES
               value: "compute,utility"
+            - name: GPU_VRAM_MB
+              value: "24576"
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
           resources:
             requests:
               memory: "8Gi"

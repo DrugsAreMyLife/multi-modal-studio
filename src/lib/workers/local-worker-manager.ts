@@ -1,11 +1,13 @@
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
+import { getTotalVramMB, logGpuInfo, getPyTorchDevice } from './gpu-detector';
 
 /**
  * Unified Local Worker Manager
  *
  * Manages all local Python workers for audio/video/image generation.
  * Workers are started on-demand and can be stopped to free resources.
+ * Supports RTX 5090 (32GB), RTX 4090 (24GB), and Apple Silicon.
  */
 
 export type LocalWorkerId =
@@ -175,7 +177,32 @@ function parseVramToMB(vram: string): number {
   return match ? parseInt(match[1]) * 1024 : 0;
 }
 
-const TOTAL_SYSTEM_VRAM_MB = 24 * 1024; // Default to 24GB (typical high-end GPU)
+// Dynamic VRAM detection - supports RTX 5090 (32GB), RTX 4090 (24GB), Apple Silicon
+function getSystemVramMB(): number {
+  try {
+    const detected = getTotalVramMB();
+    if (detected > 0) {
+      return detected;
+    }
+  } catch {
+    // GPU detection not available
+  }
+  // Fallback to env var or default
+  const envVram = process.env.GPU_VRAM_MB;
+  if (envVram) {
+    return parseInt(envVram, 10);
+  }
+  return 24 * 1024; // Default 24GB fallback
+}
+
+// Log GPU info on module load (server-side only)
+if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+  try {
+    logGpuInfo();
+  } catch {
+    console.log('[WorkerManager] GPU detection skipped');
+  }
+}
 
 // Singleton state for all workers
 const workerStates: Record<LocalWorkerId, WorkerState> = {
@@ -277,17 +304,18 @@ export async function startWorker(
     return { success: true };
   }
 
-  // VRAM check
+  // VRAM check - dynamic detection for RTX 5090 (32GB), RTX 4090 (24GB), etc.
+  const systemVramMB = getSystemVramMB();
   const currentUsageMB = Object.keys(workerStates)
     .filter((id) => workerStates[id as LocalWorkerId].isReady)
     .reduce((sum, id) => sum + parseVramToMB(WORKER_CONFIGS[id as LocalWorkerId].vramEstimate), 0);
 
   const estimatedNeededMB = parseVramToMB(config.vramEstimate);
 
-  if (currentUsageMB + estimatedNeededMB > TOTAL_SYSTEM_VRAM_MB) {
+  if (currentUsageMB + estimatedNeededMB > systemVramMB) {
     return {
       success: false,
-      error: `Insufficient VRAM. Total used: ${currentUsageMB}MB, Needed: ${estimatedNeededMB}MB, Limit: ${TOTAL_SYSTEM_VRAM_MB}MB. Please stop other workers.`,
+      error: `Insufficient VRAM. Total used: ${currentUsageMB}MB, Needed: ${estimatedNeededMB}MB, System VRAM: ${systemVramMB}MB. Please stop other workers.`,
     };
   }
 
@@ -486,13 +514,14 @@ export function stopAllWorkers(): void {
 }
 
 /**
- * Get total VRAM usage in MB
+ * Get available VRAM in MB (total - used by running workers)
  */
 export function getAvailableVram(): number {
+  const systemVramMB = getSystemVramMB();
   const usedMB = Object.keys(workerStates)
     .filter((id) => workerStates[id as LocalWorkerId].isReady)
     .reduce((sum, id) => sum + parseVramToMB(WORKER_CONFIGS[id as LocalWorkerId].vramEstimate), 0);
-  return Math.max(0, TOTAL_SYSTEM_VRAM_MB - usedMB);
+  return Math.max(0, systemVramMB - usedMB);
 }
 
 /**
