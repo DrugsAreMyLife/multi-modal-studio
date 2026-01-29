@@ -39,6 +39,7 @@ interface VideoGenerationRequest {
     | 'local'; // Legacy: direct provider
   modelParams?: Record<string, any>; // Dynamic parameters from model definition
   imageUrl?: string; // For image-to-video
+  endImageUrl?: string; // For keyframe interpolation
   duration?: number;
   webhookUrl?: string; // Optional webhook URL for completion callback
 }
@@ -53,6 +54,7 @@ interface VideoGenerationResponse {
 
 interface GenerationOptions {
   imageUrl?: string;
+  endImageUrl?: string;
   duration?: number;
 }
 
@@ -137,6 +139,9 @@ async function generateWithLuma(
         keyframes: options.imageUrl
           ? {
               frame0: { type: 'image', url: options.imageUrl },
+              ...(options.endImageUrl
+                ? { frame1: { type: 'image', url: options.endImageUrl } }
+                : {}),
             }
           : undefined,
         webhook_url: webhookUrl,

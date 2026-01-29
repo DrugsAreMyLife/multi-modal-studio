@@ -26,11 +26,15 @@ import {
 import { getGenerationModelById } from '@/lib/models/generation-models';
 
 import { VideoPlayer } from './VideoPlayer';
+import { MotionCanvas } from './MotionCanvas';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MousePointer2 } from 'lucide-react';
 
 export function VideoStudio() {
   const {
     selectedModelId,
     startFrame,
+    endFrame,
     duration,
     camera,
     tunes,
@@ -51,6 +55,8 @@ export function VideoStudio() {
   const [isShared, setIsShared] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
+  const [motionMask, setMotionMask] = useState<string | null>(null);
+  const [motionVectors, setMotionVectors] = useState<any[]>([]);
 
   const handleRender = async () => {
     if (!prompt.trim()) {
@@ -91,6 +97,9 @@ export function VideoStudio() {
           provider,
           model: selectedModelId,
           imageUrl: startFrame || undefined,
+          endImageUrl: endFrame || undefined,
+          motionMask: motionMask || undefined,
+          motionVectors: motionVectors.length > 0 ? motionVectors : undefined,
           duration,
           ...modelParams,
           camera,
@@ -302,7 +311,40 @@ export function VideoStudio() {
                     <Clapperboard size={16} className="text-primary" />
                     <span className="text-sm font-semibold">Shot Settings</span>
                   </div>
-                  <KeyframeControls />
+
+                  <Tabs defaultValue="keyframes" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 bg-black/20">
+                      <TabsTrigger value="keyframes" className="text-[10px] font-bold uppercase">
+                        Keyframes
+                      </TabsTrigger>
+                      <TabsTrigger value="motion" className="gap-2 text-[10px] font-bold uppercase">
+                        <MousePointer2 size={12} /> Brush
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="keyframes" className="pt-4">
+                      <KeyframeControls />
+                    </TabsContent>
+                    <TabsContent value="motion" className="pt-4">
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-medium">
+                            Regional Motion Guidance
+                          </Label>
+                          <p className="text-muted-foreground text-[10px] leading-relaxed">
+                            Paint over areas where you want to <b>constrain or direct</b> primary
+                            motion.
+                          </p>
+                        </div>
+                        <MotionCanvas
+                          backgroundImage={startFrame}
+                          onUpdate={(mask, vectors) => {
+                            setMotionMask(mask);
+                            setMotionVectors(vectors);
+                          }}
+                        />
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </motion.div>
 
                 <div className="bg-border h-px" />

@@ -13,6 +13,7 @@ import {
   Brain,
   Combine,
   Music,
+  UserCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,22 @@ import { useState } from 'react';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ModelManager } from '@/components/settings/ModelManager';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useWorkerHealth } from '@/hooks/useWorkerHealth';
+import {
+  Move3d,
+  Eraser,
+  Split,
+  Palette,
+  Ear,
+  Compass,
+  Timer,
+  Hammer,
+  HardDrive,
+  BookOpen,
+  Rotate3d,
+  Printer,
+  Mic2,
+} from 'lucide-react';
 
 export type ViewMode =
   | 'workbench'
@@ -32,7 +49,24 @@ export type ViewMode =
   | 'analysis'
   | 'training'
   | 'music'
-  | 'remix';
+  | 'remix'
+  | 'actor'
+  | 'depth'
+  | 'retouch'
+  | 'vfx'
+  | 'node'
+  | 'stem'
+  | 'grading'
+  | 'acoustic'
+  | 'director'
+  | 'ops'
+  | 'forge'
+  | 'nexus'
+  | 'lexicon'
+  | 'dimension'
+  | 'fabrication'
+  | 'creative'
+  | 'acoustic';
 
 interface SidebarProps {
   currentView: ViewMode;
@@ -40,6 +74,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
+  const { overallStatus, isLoading } = useWorkerHealth();
   const navItems = [
     { id: 'workbench', icon: LayoutGrid, label: 'Workbench' },
     { id: 'analysis', icon: ScanEye, label: 'VLM Analysis' },
@@ -52,6 +87,23 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
     { id: 'training', icon: Brain, label: 'Training' },
     { id: 'music', icon: Music, label: 'Music Studio' },
     { id: 'remix', icon: Combine, label: 'Remix Engine' },
+    { id: 'actor', icon: UserCircle2, label: 'Actor Registry' },
+    { id: 'depth', icon: Move3d, label: 'Depth Studio' },
+    { id: 'retouch', icon: Eraser, label: 'Neural Retouch' },
+    { id: 'vfx', icon: Combine, label: 'VFX Studio' },
+    { id: 'node', icon: Workflow, label: 'Node Studio' },
+    { id: 'stem', icon: Split, label: 'Stem Studio' },
+    { id: 'grading', icon: Palette, label: 'Grading & Fidelity' },
+    { id: 'acoustic', icon: Ear, label: 'Acoustic Studio' },
+    { id: 'director', icon: Compass, label: 'Director Studio' },
+    { id: 'ops', icon: Timer, label: 'Operations' },
+    { id: 'forge', icon: Hammer, label: 'LoRA Forge' },
+    { id: 'nexus', icon: HardDrive, label: 'Asset Nexus' },
+    { id: 'lexicon', icon: BookOpen, label: 'Lexicon Engine' },
+    { id: 'dimension', icon: Rotate3d, label: 'Dimension Studio' },
+    { id: 'creative', icon: Palette, label: 'Creative Studio' },
+    { id: 'fabrication', icon: Printer, label: 'Forge Fabrication' },
+    { id: 'acoustic', icon: Mic2, label: 'Acoustic Forge' },
   ] as const;
 
   return (
@@ -85,7 +137,30 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         ))}
       </div>
 
-      <div className="mt-auto pb-4">
+      <div className="mt-auto flex flex-col items-center gap-4 pb-4">
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <div className="relative cursor-help">
+                <div
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    overallStatus === 'healthy'
+                      ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                      : overallStatus === 'idle'
+                        ? 'bg-zinc-500'
+                        : 'animate-pulse bg-amber-500',
+                  )}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-[10px]">
+              Workers: {overallStatus}
+              {isLoading && ' (updating...)'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">

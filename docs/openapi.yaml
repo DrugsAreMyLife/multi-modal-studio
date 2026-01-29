@@ -1,0 +1,1284 @@
+openapi: 3.0.3
+info:
+  title: Multi-Modal Generation Studio API
+  description: |
+    API for the Semantic Layer Integration providing image segmentation, semantic analysis,
+    creative operations, worker management, and job streaming capabilities.
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://github.com/yourusername/mmgs
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: Image Segmentation
+    description: SAM2-powered image segmentation and mask generation
+  - name: Semantic Analysis
+    description: LLM-based semantic constraint analysis
+  - name: Creative Operations
+    description: Creative image operations (background removal, vectorization)
+  - name: Worker Management
+    description: Local worker status and lifecycle management
+  - name: Job Streaming
+    description: Server-sent event streaming for job progress
+
+paths:
+  /api/segment:
+    post:
+      tags:
+        - Image Segmentation
+      summary: Submit image segmentation job
+      description: |
+        Submit an image for segmentation using SAM2 (Segment Anything Model 2).
+        Supports multiple segmentation modes: automatic, point-based, box-based, and text-prompt-based.
+      operationId: submitSegmentationJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SegmentationRequest'
+            examples:
+              automaticMode:
+                summary: Automatic segmentation
+                value:
+                  imageUrl: https://example.com/image.jpg
+                  mode: automatic
+                  async: true
+              pointMode:
+                summary: Point-based segmentation
+                value:
+                  imageUrl: https://example.com/image.jpg
+                  mode: point
+                  points:
+                    - x: 100
+                      y: 150
+                    - x: 200
+                      y: 250
+                  labels:
+                    - 1
+                    - 1
+                  async: true
+              boxMode:
+                summary: Box-based segmentation
+                value:
+                  imageUrl: https://example.com/image.jpg
+                  mode: box
+                  boxes:
+                    - x1: 50
+                      y1: 50
+                      x2: 300
+                      y2: 300
+                  async: false
+      responses:
+        '200':
+          description: Segmentation job submitted or completed successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SegmentationAsyncResponse'
+                  - $ref: '#/components/schemas/SegmentationSyncResponse'
+              examples:
+                asyncResponse:
+                  summary: Async mode response (job queued)
+                  value:
+                    jobId: job_1234567890abcdef
+                    status: queued
+                    estimatedWait: 5000
+                syncResponse:
+                  summary: Sync mode response (completed)
+                  value:
+                    jobId: job_1234567890abcdef
+                    status: completed
+                    masks:
+                      - segmentation: [[0,0,1,1,0],[0,1,1,1,0],[0,1,1,1,0],[0,0,0,0,0]]
+                        area: 9
+                        bbox: [1, 0, 3, 3]
+                        predicted_iou: 0.95
+                        stability_score: 0.98
+                        crop_box: [0, 0, 4, 4]
+                    inputImageUrl: https://example.com/image.jpg
+                    outputDir: /outputs/segmentation/job_1234567890abcdef
+                    processingTime: 12500
+        '400':
+          description: Bad request - missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingImageUrl:
+                  summary: Missing imageUrl
+                  value:
+                    error: imageUrl is required
+                invalidMode:
+                  summary: Missing required parameter for mode
+                  value:
+                    error: points are required for point mode
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                segmentationFailed:
+                  summary: Segmentation processing failed
+                  value:
+                    error: Segmentation failed due to model error
+
+    get:
+      tags:
+        - Image Segmentation
+      summary: Get segmentation job status
+      description: Retrieve the status of a segmentation job by job ID
+      operationId: getSegmentationStatus
+      parameters:
+        - name: jobId
+          in: query
+          required: true
+          description: The job ID returned from submission
+          schema:
+            type: string
+            example: job_1234567890abcdef
+      responses:
+        '200':
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+              example:
+                jobId: job_1234567890abcdef
+                status: completed
+                progress: 100
+                result:
+                  masks: []
+                  outputDir: /outputs/segmentation/job_1234567890abcdef
+        '400':
+          description: Missing jobId parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: jobId query parameter is required
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Job not found
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/semantic/analyze:
+    post:
+      tags:
+        - Semantic Analysis
+      summary: Analyze semantic constraints
+      description: |
+        Analyze text to extract semantic constraints using LLM.
+        Supports multiple semantic domains: geometric, material, structural, and creative.
+        Rate limited to 20 requests per minute per user.
+      operationId: analyzeSemanticConstraints
+      parameters:
+        - name: x-user-id
+          in: header
+          required: false
+          description: User ID for rate limiting (uses IP if not provided)
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SemanticAnalysisRequest'
+            examples:
+              geometricDomain:
+                summary: Geometric constraint analysis
+                value:
+                  text: A spherical object with diameter 50mm
+                  domain: geometric
+              creativeDomain:
+                summary: Creative operation analysis
+                value:
+                  text: Remove the background from the image
+                  domain: creative
+                  assetId: asset_xyz123
+      responses:
+        '200':
+          description: Semantic analysis completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemanticAnalysisResponse'
+              examples:
+                geometricResponse:
+                  summary: Geometric constraint response
+                  value:
+                    constraints:
+                      - key: shape
+                        value: sphere
+                        confidence: 0.95
+                      - key: diameter
+                        value: 50
+                        confidence: 0.92
+                        unit: mm
+                creativeResponse:
+                  summary: Creative operation response
+                  value:
+                    constraints:
+                      - key: operation
+                        value: background_removal
+                        confidence: 0.98
+                    intent:
+                      domain: raster
+                      operation: background_removal
+                      confidence: 0.98
+        '400':
+          description: Bad request - missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingText:
+                  summary: Missing text field
+                  value:
+                    error: text field is required and must be a string
+                invalidDomain:
+                  summary: Invalid domain
+                  value:
+                    error: domain must be one of: geometric, material, structural, creative
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Rate limit exceeded. Please try again later.
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Analysis failed
+
+    get:
+      tags:
+        - Semantic Analysis
+      summary: Get semantic analysis API information
+      description: Returns available domains and API usage information
+      operationId: getSemanticAnalysisInfo
+      responses:
+        '200':
+          description: API information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemanticAnalysisInfo'
+              example:
+                availableDomains:
+                  - geometric
+                  - material
+                  - structural
+                  - creative
+                rateLimit: 20 requests per minute
+                usage:
+                  method: POST
+                  body:
+                    text: string (required) - The text to analyze
+                    domain: string (required) - One of geometric, material, structural, creative
+                    assetId: string (optional) - Asset ID to associate results with
+
+  /api/creative/execute:
+    post:
+      tags:
+        - Creative Operations
+      summary: Execute creative operations
+      description: |
+        Execute natural language creative commands on images.
+        Supported operations: background removal, vectorization, and image tracing.
+      operationId: executeCreativeOperation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreativeExecuteRequest'
+            examples:
+              backgroundRemoval:
+                summary: Background removal
+                value:
+                  command: remove the background
+                  imageUrl: https://example.com/photo.jpg
+              vectorization:
+                summary: Image vectorization
+                value:
+                  command: vectorize this image
+                  imageUrl: https://example.com/logo.png
+                  assetId: asset_abc123
+      responses:
+        '200':
+          description: Creative operation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreativeExecuteResponse'
+              examples:
+                backgroundRemovalResponse:
+                  summary: Background removal result
+                  value:
+                    operation: background_removal
+                    status: completed
+                    artifactUrl: https://example.com/outputs/artifact_xyz.png
+                    maskUrl: https://example.com/outputs/mask_xyz.png
+                    jobId: job_creative_123
+                    processingTime: 8500
+                    timestamp: '2024-01-15T10:30:45Z'
+        '400':
+          description: Bad request - invalid command or missing required parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCommand:
+                  summary: Unrecognized command
+                  value:
+                    error: Could not understand creative command. Try "remove background", "vectorize", etc.
+                missingImageUrl:
+                  summary: Missing imageUrl for image operation
+                  value:
+                    error: imageUrl is required for this operation
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Operation failed
+
+    get:
+      tags:
+        - Creative Operations
+      summary: Get creative operations API information
+      description: Returns supported operations and API usage information
+      operationId: getCreativeOperationsInfo
+      responses:
+        '200':
+          description: API information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreativeOperationsInfo'
+              example:
+                description: Execute creative operations on images
+                supportedOperations:
+                  - background_removal / remove background
+                  - vectorization / vectorize / trace
+                usage:
+                  method: POST
+                  body:
+                    command: string (required) - Natural language command like "remove background"
+                    imageUrl: string (required for image ops) - URL of the image to process
+                    assetId: string (optional) - Asset ID to track in preprocessing repo
+                examples:
+                  - command: remove the background
+                    imageUrl: /uploads/photo.jpg
+                  - command: vectorize this image
+                    imageUrl: /uploads/logo.png
+
+  /api/workers/status:
+    get:
+      tags:
+        - Worker Management
+      summary: Get worker status
+      description: |
+        Get status of all local workers or a specific worker.
+        Requires authentication. Rate limited based on chat limits.
+      operationId: getWorkerStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: workerId
+          in: query
+          required: false
+          description: Specific worker ID to check (optional, returns all if omitted)
+          schema:
+            type: string
+            enum:
+              - sam2
+              - comfyui
+              - voice-synthesis
+            example: sam2
+      responses:
+        '200':
+          description: Worker status retrieved successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AllWorkersStatusResponse'
+                  - $ref: '#/components/schemas/SingleWorkerStatusResponse'
+              examples:
+                allWorkers:
+                  summary: All workers status
+                  value:
+                    success: true
+                    workers:
+                      sam2:
+                        status: ready
+                        label: SAM2 Segmentation
+                        processId: 1234
+                        memoryUsage: 2048
+                        vramUsage: 4096
+                      comfyui:
+                        status: idle
+                        label: ComfyUI Generation
+                        processId: 1235
+                        memoryUsage: 1024
+                        vramUsage: 8192
+                    activeVram: 12288
+                singleWorker:
+                  summary: Single worker status
+                  value:
+                    success: true
+                    worker:
+                      status: ready
+                      label: SAM2 Segmentation
+                      processId: 1234
+                      memoryUsage: 2048
+                      vramUsage: 4096
+        '400':
+          description: Bad request - unknown worker ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerErrorResponse'
+              example:
+                success: false
+                error: Unknown worker sam3
+        '401':
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Unauthorized
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerErrorResponse'
+
+    post:
+      tags:
+        - Worker Management
+      summary: Control worker lifecycle
+      description: |
+        Start, stop, or restart a worker. Requires authentication.
+        Rate limited based on generation limits.
+      operationId: controlWorker
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerControlRequest'
+            examples:
+              startWorker:
+                summary: Start a worker
+                value:
+                  workerId: sam2
+                  action: start
+              stopWorker:
+                summary: Stop a worker
+                value:
+                  workerId: comfyui
+                  action: stop
+              restartWorker:
+                summary: Restart a worker
+                value:
+                  workerId: voice-synthesis
+                  action: restart
+      responses:
+        '200':
+          description: Worker control action completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerControlResponse'
+              examples:
+                startSuccess:
+                  summary: Worker started successfully
+                  value:
+                    success: true
+                    message: SAM2 Segmentation is ready
+                    worker:
+                      status: ready
+                      label: SAM2 Segmentation
+                      processId: 1234
+                      memoryUsage: 2048
+                      vramUsage: 4096
+                stopSuccess:
+                  summary: Worker stopped successfully
+                  value:
+                    success: true
+                    message: ComfyUI Generation stopped
+                    worker:
+                      status: stopped
+                      label: ComfyUI Generation
+                      processId: null
+        '400':
+          description: Bad request - unknown worker or action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerErrorResponse'
+              examples:
+                unknownWorker:
+                  summary: Unknown worker ID
+                  value:
+                    success: false
+                    error: Unknown worker invalid_id
+                unknownAction:
+                  summary: Unknown action
+                  value:
+                    success: false
+                    error: Unknown action pause
+        '401':
+          description: Unauthorized - missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Unauthorized
+        '503':
+          description: Service unavailable - worker failed to start
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerControlResponse'
+              example:
+                success: false
+                error: Failed to initialize worker
+                worker:
+                  status: error
+                  label: SAM2 Segmentation
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerErrorResponse'
+
+  /api/jobs/{jobId}/events:
+    get:
+      tags:
+        - Job Streaming
+      summary: Stream job progress events (SSE)
+      description: |
+        Stream job progress updates in real-time using Server-Sent Events (SSE).
+
+        Events streamed:
+        - `connected`: Initial connection established
+        - `progress`: Progress update with percentage
+        - `completed`: Job completed with final result
+        - `failed`: Job failed with error details
+        - `error`: Stream error occurred
+      operationId: streamJobEvents
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: Job ID to stream events for
+          schema:
+            type: string
+            example: job_1234567890abcdef
+      responses:
+        '200':
+          description: Server-sent event stream established
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/SSEEventStream'
+              examples:
+                eventStream:
+                  summary: SSE event sequence
+                  value: |
+                    event: connected
+                    data: {"jobId":"job_123","status":"streaming"}
+
+                    event: progress
+                    data: {"jobId":"job_123","progress":25,"status":"processing"}
+
+                    event: progress
+                    data: {"jobId":"job_123","progress":50,"status":"processing"}
+
+                    event: progress
+                    data: {"jobId":"job_123","progress":100,"status":"processing"}
+
+                    event: completed
+                    data: {"jobId":"job_123","status":"completed","result":{"masks":[]}}
+        '400':
+          description: Bad request - missing or invalid jobId
+          content:
+            text/plain:
+              example: Job ID is required
+        '404':
+          description: Job not found
+          content:
+            text/plain:
+              example: Job not found
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              example: Internal server error
+
+components:
+  schemas:
+    # Segmentation Schemas
+    Point:
+      type: object
+      required:
+        - x
+        - y
+      properties:
+        x:
+          type: number
+          description: X coordinate in pixels
+          example: 100
+        y:
+          type: number
+          description: Y coordinate in pixels
+          example: 150
+
+    Box:
+      type: object
+      required:
+        - x1
+        - y1
+        - x2
+        - y2
+      properties:
+        x1:
+          type: number
+          description: Top-left x coordinate
+          example: 50
+        y1:
+          type: number
+          description: Top-left y coordinate
+          example: 50
+        x2:
+          type: number
+          description: Bottom-right x coordinate
+          example: 300
+        y2:
+          type: number
+          description: Bottom-right y coordinate
+          example: 300
+
+    SegmentationRequest:
+      type: object
+      required:
+        - imageUrl
+      properties:
+        imageUrl:
+          type: string
+          format: uri
+          description: URL of the image to segment
+          example: https://example.com/image.jpg
+        mode:
+          type: string
+          enum:
+            - automatic
+            - point
+            - box
+            - text
+          default: automatic
+          description: Segmentation mode
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/Point'
+          description: Point coordinates for point mode
+        labels:
+          type: array
+          items:
+            type: integer
+            enum: [0, 1]
+          description: Labels for points (0=negative, 1=positive)
+        boxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Box'
+          description: Bounding boxes for box mode
+        textPrompt:
+          type: string
+          description: Text prompt for text-based segmentation
+          example: "person wearing red shirt"
+        async:
+          type: boolean
+          default: true
+          description: Return immediately (true) or wait for result (false)
+        multimaskOutput:
+          type: boolean
+          default: false
+          description: Return multiple mask candidates
+
+    Mask:
+      type: object
+      properties:
+        segmentation:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+          description: Binary mask as 2D array
+        area:
+          type: integer
+          description: Number of pixels in mask
+          example: 9
+        bbox:
+          type: array
+          items:
+            type: number
+          minItems: 4
+          maxItems: 4
+          description: Bounding box [x, y, width, height]
+        predicted_iou:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Predicted intersection over union
+          example: 0.95
+        stability_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Mask stability score
+          example: 0.98
+        crop_box:
+          type: array
+          items:
+            type: number
+          minItems: 4
+          maxItems: 4
+          description: Crop box used for segmentation
+
+    SegmentationAsyncResponse:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+          description: Job ID for tracking
+          example: job_1234567890abcdef
+        status:
+          type: string
+          enum:
+            - queued
+            - processing
+            - completed
+            - failed
+          example: queued
+        estimatedWait:
+          type: integer
+          description: Estimated wait time in milliseconds
+          example: 5000
+
+    SegmentationSyncResponse:
+      type: object
+      required:
+        - jobId
+        - status
+        - masks
+      properties:
+        jobId:
+          type: string
+          description: Job ID for tracking
+          example: job_1234567890abcdef
+        status:
+          type: string
+          enum:
+            - completed
+            - failed
+          example: completed
+        masks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Mask'
+        inputImageUrl:
+          type: string
+          format: uri
+          description: Original input image URL
+        outputDir:
+          type: string
+          description: Directory containing output files
+          example: /outputs/segmentation/job_1234567890abcdef
+        processingTime:
+          type: integer
+          description: Processing time in milliseconds
+          example: 12500
+
+    JobStatus:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum:
+            - queued
+            - processing
+            - completed
+            - failed
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        result:
+          type: object
+          additionalProperties: true
+
+    # Semantic Analysis Schemas
+    SemanticConstraint:
+      type: object
+      required:
+        - key
+        - value
+        - confidence
+      properties:
+        key:
+          type: string
+          description: Constraint key (e.g., shape, diameter, operation)
+          example: shape
+        value:
+          oneOf:
+            - type: string
+            - type: number
+          description: Constraint value
+          example: sphere
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence score
+          example: 0.95
+        unit:
+          type: string
+          description: Unit of measurement (optional)
+          example: mm
+
+    SemanticAnalysisRequest:
+      type: object
+      required:
+        - text
+        - domain
+      properties:
+        text:
+          type: string
+          description: Text to analyze
+          example: A spherical object with diameter 50mm
+        domain:
+          type: string
+          enum:
+            - geometric
+            - material
+            - structural
+            - creative
+          description: Semantic domain
+        assetId:
+          type: string
+          description: Associated asset ID (optional)
+          example: asset_xyz123
+
+    SemanticIntent:
+      type: object
+      properties:
+        domain:
+          type: string
+          example: raster
+        operation:
+          type: string
+          example: background_removal
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    SemanticAnalysisResponse:
+      type: object
+      required:
+        - constraints
+      properties:
+        constraints:
+          type: array
+          items:
+            $ref: '#/components/schemas/SemanticConstraint'
+        intent:
+          $ref: '#/components/schemas/SemanticIntent'
+          description: Intent extraction (for creative domain)
+
+    SemanticAnalysisInfo:
+      type: object
+      properties:
+        availableDomains:
+          type: array
+          items:
+            type: string
+          example:
+            - geometric
+            - material
+            - structural
+            - creative
+        rateLimit:
+          type: string
+          example: 20 requests per minute
+        usage:
+          type: object
+          properties:
+            method:
+              type: string
+            body:
+              type: object
+
+    # Creative Operations Schemas
+    CreativeExecuteRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          description: Natural language creative command
+          example: remove the background
+        imageUrl:
+          type: string
+          format: uri
+          description: URL of image to process (required for image operations)
+          example: https://example.com/photo.jpg
+        assetId:
+          type: string
+          description: Asset ID for preprocessing repo tracking (optional)
+          example: asset_abc123
+
+    CreativeExecuteResponse:
+      type: object
+      required:
+        - operation
+        - status
+      properties:
+        operation:
+          type: string
+          enum:
+            - background_removal
+            - vectorization
+          description: Executed operation
+        status:
+          type: string
+          enum:
+            - completed
+            - processing
+            - failed
+          example: completed
+        artifactUrl:
+          type: string
+          format: uri
+          description: URL of the processed artifact
+          example: https://example.com/outputs/artifact_xyz.png
+        maskUrl:
+          type: string
+          format: uri
+          description: URL of the generated mask (for background removal)
+          example: https://example.com/outputs/mask_xyz.png
+        jobId:
+          type: string
+          description: Associated job ID
+          example: job_creative_123
+        processingTime:
+          type: integer
+          description: Processing time in milliseconds
+          example: 8500
+        timestamp:
+          type: string
+          format: date-time
+          description: Completion timestamp
+          example: '2024-01-15T10:30:45Z'
+
+    CreativeOperationsInfo:
+      type: object
+      properties:
+        description:
+          type: string
+        supportedOperations:
+          type: array
+          items:
+            type: string
+        usage:
+          type: object
+        examples:
+          type: array
+          items:
+            type: object
+
+    # Worker Management Schemas
+    WorkerInfo:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ready
+            - idle
+            - processing
+            - stopped
+            - error
+          example: ready
+        label:
+          type: string
+          description: Human-readable worker name
+          example: SAM2 Segmentation
+        processId:
+          type: integer
+          nullable: true
+          description: Process ID (null if stopped)
+          example: 1234
+        memoryUsage:
+          type: integer
+          description: Memory usage in MB
+          example: 2048
+        vramUsage:
+          type: integer
+          description: VRAM usage in MB
+          example: 4096
+
+    AllWorkersStatusResponse:
+      type: object
+      required:
+        - success
+        - workers
+        - activeVram
+      properties:
+        success:
+          type: boolean
+          example: true
+        workers:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/WorkerInfo'
+        activeVram:
+          type: integer
+          description: Total active VRAM usage in MB
+          example: 12288
+
+    SingleWorkerStatusResponse:
+      type: object
+      required:
+        - success
+        - worker
+      properties:
+        success:
+          type: boolean
+          example: true
+        worker:
+          $ref: '#/components/schemas/WorkerInfo'
+
+    WorkerControlRequest:
+      type: object
+      required:
+        - workerId
+        - action
+      properties:
+        workerId:
+          type: string
+          enum:
+            - sam2
+            - comfyui
+            - voice-synthesis
+          description: Worker to control
+          example: sam2
+        action:
+          type: string
+          enum:
+            - start
+            - stop
+            - restart
+          description: Action to perform
+          example: start
+
+    WorkerControlResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          description: Action result message
+          example: SAM2 Segmentation is ready
+        error:
+          type: string
+          description: Error message (if not successful)
+        worker:
+          $ref: '#/components/schemas/WorkerInfo'
+
+    WorkerErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Unknown worker sam3
+
+    # SSE Streaming Schemas
+    SSEConnectedEvent:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum:
+            - streaming
+          example: streaming
+
+    SSEProgressEvent:
+      type: object
+      required:
+        - jobId
+        - progress
+        - status
+      properties:
+        jobId:
+          type: string
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 50
+        status:
+          type: string
+          example: processing
+
+    SSECompletedEvent:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum:
+            - completed
+        result:
+          type: object
+          additionalProperties: true
+
+    SSEFailedEvent:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum:
+            - failed
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+
+    SSEErrorEvent:
+      type: object
+      required:
+        - message
+        - jobId
+      properties:
+        message:
+          type: string
+        jobId:
+          type: string
+
+    SSEEventStream:
+      oneOf:
+        - $ref: '#/components/schemas/SSEConnectedEvent'
+        - $ref: '#/components/schemas/SSEProgressEvent'
+        - $ref: '#/components/schemas/SSECompletedEvent'
+        - $ref: '#/components/schemas/SSEFailedEvent'
+        - $ref: '#/components/schemas/SSEErrorEvent'
+
+    # Common Error Schema
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Internal server error
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token authentication for worker management endpoints
+
+x-rate-limits:
+  semantic-analysis:
+    requests: 20
+    period: 1 minute
+    description: Rate limit for semantic analysis endpoint
+  worker-operations:
+    requests: 100
+    period: 1 minute
+    description: Rate limit for worker control operations

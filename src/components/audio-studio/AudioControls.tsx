@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { NeuralIsolationToggle } from '@/components/shared/NeuralIsolationToggle';
 
 export function AudioControls() {
   const { mode, setMode, stability, similarity, setParams } = useAudioStudioStore();
@@ -80,6 +81,9 @@ export function AudioControls() {
               onValueChange={([val]) => setParams({ similarity: val })}
             />
           </div>
+
+          <div className="bg-border my-6 h-px" />
+          <NeuralIsolationToggle type="speech" />
         </>
       )}
 

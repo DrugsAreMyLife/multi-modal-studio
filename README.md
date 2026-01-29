@@ -277,11 +277,11 @@ REPLICATE_WEBHOOK_SECRET=...
 
 ## Support
 
-- Documentation: See `/User_Testing_Instructions` and `/IMPROVEMENT_PLAN.md`
+- Documentation: [API Documentation](./docs/API_DOCUMENTATION.md), [Component Integration Guide](./docs/COMPONENT_GUIDE.md)
+- User Testing: See `/User_Testing_Instructions` and `/IMPROVEMENT_PLAN.md`
 - Issues: Create a GitHub issue
-- Security: See SECURITY.md (if applicable)
 
 ---
 
 **Built with** Next.js, TypeScript, and 15+ AI providers
-**Last Updated**: 2026-01-17
+**Last Updated**: 2026-01-28

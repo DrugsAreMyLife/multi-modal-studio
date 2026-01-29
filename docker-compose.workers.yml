@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: mmgs-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  sam2-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sam2
+    container_name: mmgs-sam2
+    ports:
+      - "8006:8006"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SAM2_PORT=8006
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ./outputs:/app/outputs
+      - ./checkpoints:/app/checkpoints
+      - model-cache:/root/.cache
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  svg-turbo-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.svg-turbo
+    container_name: mmgs-svg-turbo
+    ports:
+      - "8008:8008"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SVG_TURBO_PORT=8008
+    volumes:
+      - ./outputs:/app/outputs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  hunyuan-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.hunyuan
+    container_name: mmgs-hunyuan
+    ports:
+      - "8007:8007"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - HUNYUAN_PORT=8007
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ./outputs:/app/outputs
+      - model-cache:/root/.cache
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    profiles:
+      - gpu-heavy
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  model-cache:
+
+networks:
+  default:
+    name: mmgs-network

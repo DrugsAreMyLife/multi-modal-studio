@@ -2,8 +2,9 @@
 
 import { useVideoStudioStore } from '@/lib/store/video-studio-store';
 import { FineTuneControl } from '@/components/shared/FineTuneControl';
-import { SlidersHorizontal, Info } from 'lucide-react';
+import { SlidersHorizontal, Info, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export function VideoGenerationSettings() {
   const { tunes, updateTunes } = useVideoStudioStore();
@@ -108,6 +109,28 @@ export function VideoGenerationSettings() {
             </TooltipProvider>
           </div>
           <input type="checkbox" defaultChecked className="accent-primary" />
+        </div>
+
+        <div className="bg-border h-px" />
+
+        {/* Pro Tip */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center gap-2 px-1">
+            <Sparkles size={14} className="text-amber-400" />
+            <span className="text-[10px] font-semibold tracking-wider text-amber-400/80 uppercase">
+              Pro Tip: Guidance
+            </span>
+          </div>
+          <Alert className="border-amber-500/20 bg-amber-500/5 px-3 py-2">
+            <Info size={14} className="text-amber-400" />
+            <AlertTitle className="text-[11px] font-semibold text-amber-200">
+              Precise Motion
+            </AlertTitle>
+            <AlertDescription className="text-[10px] leading-relaxed text-amber-100/70 shadow-sm">
+              Struggling with complex shots? Provide both a **Start** and **End** frame. The AI will
+              bridge the gap, ensuring your scene ends exactly how you composed it.
+            </AlertDescription>
+          </Alert>
         </div>
       </div>
     </div>

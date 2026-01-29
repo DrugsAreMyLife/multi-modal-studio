@@ -20,7 +20,16 @@ export type LocalWorkerId =
   | 'sam2'
   | 'hunyuan-video'
   | 'svg-turbo'
-  | 'nvidia-personaplex';
+  | 'nvidia-personaplex'
+  | 'depth-anything'
+  | 'demucs'
+  | 'vfx-composite'
+  | 'color-grading'
+  | 'retouch-inpaint'
+  | 'audio-master'
+  | 'audio-tts'
+  | 'video-stabilize'
+  | 'forge-training';
 
 export interface WorkerConfig {
   id: LocalWorkerId;
@@ -169,6 +178,105 @@ export const WORKER_CONFIGS: Record<LocalWorkerId, WorkerConfig> = {
     vramEstimate: '16GB',
     description: 'NVIDIA 7B full-duplex conversational voice AI',
   },
+  'depth-anything': {
+    id: 'depth-anything',
+    label: 'Depth Anything V2',
+    script: 'scripts/depth-worker.py',
+    port: 8010,
+    healthEndpoint: '/health',
+    envVar: 'DEPTH_WORKER_URL',
+    startupTimeout: 60000,
+    vramEstimate: '4GB',
+    description: 'Depth estimation from single images',
+  },
+  demucs: {
+    id: 'demucs',
+    label: 'Demucs',
+    script: 'scripts/demucs-worker.py',
+    port: 8011,
+    healthEndpoint: '/health',
+    envVar: 'DEMUCS_WORKER_URL',
+    startupTimeout: 60000,
+    vramEstimate: '4GB',
+    description: 'High-quality audio stem separation',
+  },
+  'vfx-composite': {
+    id: 'vfx-composite',
+    label: 'VFX Composite',
+    script: 'scripts/vfx-composite-worker.py',
+    port: 8006, // Same as sam2 as they are part of same suite
+    healthEndpoint: '/health',
+    envVar: 'VFX_COMPOSITE_URL',
+    startupTimeout: 30000,
+    vramEstimate: '8GB',
+    description: 'Neural alpha matting and compositing',
+  },
+  'color-grading': {
+    id: 'color-grading',
+    label: 'Color Grading',
+    script: 'scripts/grading-worker.py',
+    port: 8012,
+    healthEndpoint: '/health',
+    envVar: 'GRADING_WORKER_URL',
+    startupTimeout: 30000,
+    vramEstimate: '4GB',
+    description: 'Neural color fusion and LUT application',
+  },
+  'retouch-inpaint': {
+    id: 'retouch-inpaint',
+    label: 'Inpainting',
+    script: 'scripts/inpaint-worker.py',
+    port: 8013,
+    healthEndpoint: '/health',
+    envVar: 'INPAINT_WORKER_URL',
+    startupTimeout: 60000,
+    vramEstimate: '6GB',
+    description: 'Image inpainting and object removal',
+  },
+  'audio-master': {
+    id: 'audio-master',
+    label: 'Audio Master',
+    script: 'scripts/master-worker.py',
+    port: 8014,
+    healthEndpoint: '/health',
+    envVar: 'AUDIO_MASTER_URL',
+    startupTimeout: 30000,
+    vramEstimate: '2GB',
+    description: 'Neural audio mastering and LUFS optimization',
+  },
+  'audio-tts': {
+    id: 'audio-tts',
+    label: 'Audio TTS',
+    script: 'scripts/tts-worker.py',
+    port: 8015,
+    healthEndpoint: '/health',
+    envVar: 'AUDIO_TTS_URL',
+    startupTimeout: 60000,
+    vramEstimate: '4GB',
+    description: 'Text-to-speech with identity synthesis',
+  },
+  'video-stabilize': {
+    id: 'video-stabilize',
+    label: 'Video Stabilize',
+    script: 'scripts/stabilize-worker.py',
+    port: 8016,
+    healthEndpoint: '/health',
+    envVar: 'VIDEO_STABILIZE_URL',
+    startupTimeout: 60000,
+    vramEstimate: '6GB',
+    description: 'Magic gyro-based video stabilization',
+  },
+  'forge-training': {
+    id: 'forge-training',
+    label: 'Forge Training',
+    script: 'scripts/training-worker.py',
+    port: 8017,
+    healthEndpoint: '/health',
+    envVar: 'FORGE_TRAINING_URL',
+    startupTimeout: 120000,
+    vramEstimate: '12GB',
+    description: 'DreamBooth and LoRA training for identity persistence',
+  },
 };
 
 // Helper to parse VRAM strings to MB
@@ -216,6 +324,15 @@ const workerStates: Record<LocalWorkerId, WorkerState> = {
   'hunyuan-video': createEmptyState(),
   'svg-turbo': createEmptyState(),
   'nvidia-personaplex': createEmptyState(),
+  'depth-anything': createEmptyState(),
+  demucs: createEmptyState(),
+  'vfx-composite': createEmptyState(),
+  'color-grading': createEmptyState(),
+  'retouch-inpaint': createEmptyState(),
+  'audio-master': createEmptyState(),
+  'audio-tts': createEmptyState(),
+  'video-stabilize': createEmptyState(),
+  'forge-training': createEmptyState(),
 };
 
 function createEmptyState(): WorkerState {
