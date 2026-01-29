@@ -217,10 +217,10 @@ export function DepthStudio() {
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase opacity-50">Camera Model</label>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="xs" className="h-7 text-[9px]">
+                <Button variant="outline" size="sm" className="h-7 text-[9px]">
                   Orthographic
                 </Button>
-                <Button variant="default" size="xs" className="h-7 text-[9px]">
+                <Button variant="default" size="sm" className="h-7 text-[9px]">
                   Perspective
                 </Button>
               </div>

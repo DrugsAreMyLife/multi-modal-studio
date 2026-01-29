@@ -31,7 +31,7 @@ export function useJobProgress(
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectAttemptsRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const cleanup = useCallback(() => {
     if (eventSourceRef.current) {

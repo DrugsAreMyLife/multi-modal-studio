@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { Label } from '@/components/ui/label';
 import type { RetouchInpaintResponse } from '@/lib/types/retouch';
 
 export function RetouchStudio() {

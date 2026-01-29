@@ -18,12 +18,27 @@ import { KeyframeEditor } from '@/components/timeline/KeyframeEditor';
 import { AudioVisualizer } from '@/components/audio/AudioVisualizer';
 import { IntegrationSettings } from '@/components/integrations/IntegrationSettings';
 import { UnifiedAssetPicker } from '@/components/cloud/UnifiedAssetPicker';
-import { GlobalChatOverlay } from '@/components/chat/GlobalChatOverlay';
-import { DetachedChatManager } from '@/components/chat/DetachedChatManager';
 import { CommandPalette } from '@/components/ui/CommandPalette';
 import { TrainingMonitor } from '@/components/training/TrainingMonitor';
 import { DatasetManager } from '@/components/training/DatasetManager';
 import { RemixStudio } from '@/components/remix-studio/RemixStudio';
+import { ActorRegistry } from '@/components/actor-studio/ActorRegistry';
+import { DepthStudio } from '@/components/depth-studio/DepthStudio';
+import { RetouchStudio } from '@/components/retouch-studio/RetouchStudio';
+import { VFXStudio } from '@/components/vfx-studio/VFXStudio';
+import { NodeStudio } from '@/components/node-studio/NodeStudio';
+import { StemStudio } from '@/components/stem-studio/StemStudio';
+import { GradingStudio } from '@/components/grading-studio/GradingStudio';
+import { AcousticStudio } from '@/components/acoustic-studio/AcousticStudio';
+import { DirectorStudio } from '@/components/director-studio/DirectorStudio';
+import { OpsStudio } from '@/components/ops-studio/OpsStudio';
+import { ForgeStudio } from '@/components/forge-studio/ForgeStudio';
+import { AssetNexus } from '@/components/asset-nexus/AssetNexus';
+import { LexiconStudio } from '@/components/lexicon-studio/LexiconStudio';
+import { DimensionStudio } from '@/components/dimension-studio/DimensionStudio';
+import { ForgeFabrication } from '@/components/forge-studio/ForgeFabrication';
+import { AcousticForge } from '@/components/acoustic-forge/AcousticForge';
+import CreativeStudio from '@/components/creative-studio/CreativeStudio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUIStore } from '@/lib/store/ui-store';
 import { Maximize2, Minimize2 } from 'lucide-react';
@@ -33,11 +48,18 @@ import { ShortcutOverlay } from '@/components/ui/ShortcutOverlay';
 import { useAutoTitle } from '@/lib/store/useAutoTitle';
 import { StudioErrorBoundary } from '@/components/shared/StudioErrorBoundary';
 import { CostTracker } from '@/components/shared/CostTracker';
+import { GlobalChatOverlay } from '@/components/chat/GlobalChatOverlay';
+import { DetachedChatManager } from '@/components/chat/DetachedChatManager';
 
 interface ShellProps {
   children?: React.ReactNode;
 }
 
+/**
+ * @orchestration-role Master Application Shell
+ * @capabilities Navigation, Multi-Modal View Routing, High-Level State Management
+ * @view-modes lexicon, dimension, forge, nexus, fabrication, acoustic
+ */
 export function Shell() {
   const [currentView, setCurrentView] = useState<ViewMode>('workbench');
   const { isFocused, toggleFocused } = useUIStore();
@@ -262,6 +284,244 @@ export function Shell() {
                 >
                   <StudioErrorBoundary name="Music Studio">
                     <MusicStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'actor' && (
+                <motion.div
+                  key="actor"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Actor Registry">
+                    <ActorRegistry />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'depth' && (
+                <motion.div
+                  key="depth"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Depth Studio">
+                    <DepthStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'retouch' && (
+                <motion.div
+                  key="retouch"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Neural Retouch">
+                    <RetouchStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'vfx' && (
+                <motion.div
+                  key="vfx"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="VFX Studio">
+                    <VFXStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'node' && (
+                <motion.div
+                  key="node"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Pro Node Studio">
+                    <NodeStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'stem' && (
+                <motion.div
+                  key="stem"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Stem Studio">
+                    <StemStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'grading' && (
+                <motion.div
+                  key="grading"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Grading & Fidelity">
+                    <GradingStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'acoustic' && (
+                <motion.div
+                  key="acoustic"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Acoustic Studio">
+                    <AcousticStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'director' && (
+                <motion.div
+                  key="director"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Director Studio">
+                    <DirectorStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'ops' && (
+                <motion.div
+                  key="ops"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Operations Studio">
+                    <OpsStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'forge' && (
+                <motion.div
+                  key="forge"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="LoRA Forge">
+                    <ForgeStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'nexus' && (
+                <motion.div
+                  key="nexus"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Asset Nexus">
+                    <AssetNexus />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'lexicon' && (
+                <motion.div
+                  key="lexicon"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Lexicon Engine">
+                    <LexiconStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'dimension' && (
+                <motion.div
+                  key="dimension"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Dimension Studio">
+                    <DimensionStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'fabrication' && (
+                <motion.div
+                  key="fabrication"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Forge Fabrication">
+                    <ForgeFabrication />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'creative' && (
+                <motion.div
+                  key="creative"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Creative Studio">
+                    <CreativeStudio />
+                  </StudioErrorBoundary>
+                </motion.div>
+              )}
+              {currentView === 'acoustic' && (
+                <motion.div
+                  key="acoustic"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <StudioErrorBoundary name="Acoustic Forge">
+                    <AcousticForge />
                   </StudioErrorBoundary>
                 </motion.div>
               )}

@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import {
   Mic2,
   Volume2,
-  Waveform,
   Zap,
   Music,
   Settings2,

@@ -1,5 +1,17 @@
 import { useState, useEffect } from 'react';
-import { WorkerStatus, getAllWorkerStatuses } from '@/lib/workers/local-worker-manager';
+
+// Define type locally to avoid importing server-only code from local-worker-manager
+export interface WorkerStatus {
+  id: string;
+  label: string;
+  isRunning: boolean;
+  isReady: boolean;
+  isStarting: boolean;
+  error: string | null;
+  vramEstimate: string;
+  url: string;
+  loadedAt: number | null;
+}
 
 export function useWorkerHealth() {
   const [workers, setWorkers] = useState<WorkerStatus[]>([]);

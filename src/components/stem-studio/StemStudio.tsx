@@ -115,7 +115,7 @@ export function StemStudio() {
   };
 
   const updateStem = (id: string, updates: Partial<AudioStem>) => {
-    setStems(stems.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+    setStoreStems(storeStems.map((s) => (s.id === id ? { ...s, ...updates } : s)) as any);
   };
 
   return (

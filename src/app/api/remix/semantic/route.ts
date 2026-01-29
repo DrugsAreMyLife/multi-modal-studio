@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const jobService = getJobSubmissionService();
     const result = await jobService.submitJob({
-      workerId: 'qwen-vl-max', // Or a specialized remix worker
+      workerId: 'qwen-image', // VL model for semantic understanding
       payload: { image_url: imageUrl, instruction },
       priority: 'normal',
       waitForReady: true,
